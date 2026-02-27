@@ -1,0 +1,98 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (with tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xz-utils kpartx dosfstools e2fsprogs util-linux rsync jq curl ca-certificates gnupg
+
+      - name: Prepare base image
+        run: |
+          set -euo pipefail
+          mkdir -p out/base
+          curl -fsSL -o out/base/raspios-lite.img.xz https://downloads.raspberrypi.com/raspios_lite_arm64_latest
+          xz -dkf out/base/raspios-lite.img.xz
+
+      - name: Create .env from example
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          {
+            echo "BASE_IMAGE_PATH=./out/base/raspios-lite.img"
+            echo "OUTPUT_IMAGE_PATH=./out/clawos-pi.img"
+          } >> .env
+
+      - name: Build image
+        run: |
+          set -euo pipefail
+          chmod +x image/build.sh image/scripts/*.sh scripts/*.sh
+          set -a
+          source .env
+          set +a
+          sudo -E bash image/build.sh
+
+      - name: Build release artifacts
+        run: |
+          set -euo pipefail
+          chmod +x scripts/*.sh
+          set -a
+          source .env
+          set +a
+          sudo -E bash scripts/release-image.sh
+
+      - name: Validate release assets exist
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          test -f out/clawos-pi.img.xz
+          test -f "out/clawos-runtime-${TAG}.tar.gz"
+          test -f out/SHA256SUMS.txt
+          test -f out/RELEASE_NOTES.md
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          RUNTIME="out/clawos-runtime-${TAG}.tar.gz"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              out/clawos-pi.img.xz \
+              "$RUNTIME" \
+              out/SHA256SUMS.txt \
+              out/RELEASE_NOTES.md \
+              --clobber
+            gh release edit "$TAG" \
+              --title "$TAG" \
+              --notes-file out/RELEASE_NOTES.md \
+              --latest
+          else
+            gh release create "$TAG" \
+              out/clawos-pi.img.xz \
+              "$RUNTIME" \
+              out/SHA256SUMS.txt \
+              out/RELEASE_NOTES.md \
+              --title "$TAG" \
+              --notes-file out/RELEASE_NOTES.md \
+              --latest
+          fi
