@@ -1,0 +1,23 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.secret
+
+# Build outputs
+out/
+build/
+*.img
+*.img.xz
+*.zip
+
+# Logs / temp
+*.log
+tmp/
+.cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

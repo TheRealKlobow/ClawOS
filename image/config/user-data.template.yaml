@@ -1,0 +1,13 @@
+#cloud-config
+hostname: clawos
+manage_etc_hosts: true
+
+# keep deterministic/non-interactive boot
+package_update: false
+package_upgrade: false
+
+write_files: []
+
+runcmd:
+  - [ systemctl, enable, ssh ]
+  - [ systemctl, start, ssh ]
