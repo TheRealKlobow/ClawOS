@@ -25,11 +25,13 @@ OUT_WORK="$ROOT_DIR/out/work"
 
 : "${BASE_IMAGE_PATH:=$ROOT_DIR/out/base/raspios-lite.img}"
 : "${OUTPUT_IMAGE_PATH:=$ROOT_DIR/out/clawos-pi.img}"
+: "${IMAGE_EXPAND_GB:=4}"
 
 [[ -f "$BASE_IMAGE_PATH" ]] || { echo "ERROR: base image not found: $BASE_IMAGE_PATH" >&2; exit 1; }
 mkdir -p "$(dirname "$OUTPUT_IMAGE_PATH")" "$ROOT_DIR/out/work/mnt-root" "$STATE_DIR"
 
 cp "$BASE_IMAGE_PATH" "$OUTPUT_IMAGE_PATH"
+truncate -s "+${IMAGE_EXPAND_GB}G" "$OUTPUT_IMAGE_PATH"
 
 cat >"$STATE_FILE" <<EOF
 ROOT_DIR=$ROOT_DIR

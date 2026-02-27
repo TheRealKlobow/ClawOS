@@ -14,6 +14,7 @@ set -a; source .env; set +a; bash image/build.sh
    - Linux/tool/root preflight
    - safe workdir checks
    - copy base image -> `out/clawos-pi.img`
+   - expand raw image size (default `+4G`) before partition/filesystem resize
 2. `inject-overlay.sh`
    - loop attach + kpartx map
    - deterministic root partition detection

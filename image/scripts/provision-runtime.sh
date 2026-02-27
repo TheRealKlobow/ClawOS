@@ -37,20 +37,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates gnupg git
-
-nodesource_ok=0
-if curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource-setup.sh; then
-  if bash /tmp/nodesource-setup.sh; then
-    if apt-get install -y --no-install-recommends nodejs; then
-      nodesource_ok=1
-    fi
-  fi
-fi
-
-if [[ "$nodesource_ok" -ne 1 ]]; then
-  apt-get install -y --no-install-recommends nodejs npm
-fi
+apt-get install -y --no-install-recommends curl ca-certificates gnupg git nodejs npm
 
 npm install -g openclaw@latest
 
