@@ -58,10 +58,12 @@ Hardening recommendations:
 
 ## Updates
 
-- Manual updater: `/usr/local/bin/clawos-update`
+- Manual updater: `sudo clawos-update`
+- OTA runtime artifact: `clawos-runtime-<version>.tar.gz`
 - Optional auto-update: `clawos-update.timer` daily at 03:00
 - Auto-update runs only when `/etc/clawos/clawos.env` has `AUTO_UPDATE=true`
 - Checksum verification is mandatory before apply; failures abort safely
+- Runtime update scope is limited to ClawOS-managed files only (no full OS reflashing)
 
 ## Support matrix
 

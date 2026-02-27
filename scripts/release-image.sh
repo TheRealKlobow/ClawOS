@@ -12,15 +12,17 @@ NOTES_PATH="$OUT_DIR/RELEASE_NOTES.md"
 [[ -f "$XZ_PATH" ]] || { echo "ERROR: missing compressed image: $XZ_PATH" >&2; exit 1; }
 
 mkdir -p "$OUT_DIR"
+RUNTIME_BUNDLE_PATH="$(bash "$ROOT_DIR/scripts/build-runtime-bundle.sh")"
 
 (
   cd "$OUT_DIR"
-  sha256sum "$(basename "$OUTPUT_IMAGE_PATH")" "$(basename "$XZ_PATH")" >"$(basename "$CHECKSUM_PATH")"
+  sha256sum "$(basename "$OUTPUT_IMAGE_PATH")" "$(basename "$XZ_PATH")" "$(basename "$RUNTIME_BUNDLE_PATH")" >"$(basename "$CHECKSUM_PATH")"
 )
 
 cp "$ROOT_DIR/docs/release-notes-template.md" "$NOTES_PATH"
 
 echo "Release files generated:"
 echo "- $XZ_PATH"
+echo "- $RUNTIME_BUNDLE_PATH"
 echo "- $CHECKSUM_PATH"
 echo "- $NOTES_PATH"

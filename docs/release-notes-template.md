@@ -10,6 +10,7 @@
 ## Artifacts
 
 - `clawos-pi.img.xz`
+- `clawos-runtime-<version>.tar.gz`
 - `SHA256SUMS.txt`
 
 ## Verification

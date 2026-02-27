@@ -47,14 +47,17 @@ if [[ "$(printf '%s\n%s\n' "$CURRENT_VERSION" "$LATEST_TAG" | sed 's/^v//' | sor
   exit 0
 fi
 
-ARCHIVE_URL="$(python3 - <<'PY' "$META_JSON"
+RUNTIME_BUNDLE_NAME="clawos-runtime-${LATEST_TAG}.tar.gz"
+ARCHIVE_URL="$(python3 - <<'PY' "$META_JSON" "$RUNTIME_BUNDLE_NAME"
 import json,sys
-with open(sys.argv[1],'r',encoding='utf-8') as f:
+meta=sys.argv[1]
+wanted=sys.argv[2]
+with open(meta,'r',encoding='utf-8') as f:
     j=json.load(f)
 assets=j.get('assets',[])
 for a in assets:
     name=a.get('name','')
-    if name.endswith('.tar.gz'):
+    if name == wanted:
         print(a.get('browser_download_url',''))
         break
 PY
@@ -74,7 +77,7 @@ PY
 )"
 
 if [[ -z "$ARCHIVE_URL" || -z "$CHECKSUM_URL" ]]; then
-  echo "release assets missing (.tar.gz and/or SHA256SUMS.txt)"
+  echo "release assets missing (${RUNTIME_BUNDLE_NAME} and/or SHA256SUMS.txt)"
   exit 1
 fi
 
@@ -92,16 +95,17 @@ fi
 
 echo "$CHECK_LINE" | (cd "$WORK_DIR" && sha256sum -c -)
 
-mkdir -p /opt/clawos/update
-rm -rf /opt/clawos/update/*
-tar -xzf "$ARCHIVE_PATH" -C /opt/clawos/update
+TARGET_DIR="/opt/clawos/update/${LATEST_TAG}"
+mkdir -p "$TARGET_DIR"
+rm -rf "$TARGET_DIR"/*
+tar -xzf "$ARCHIVE_PATH" -C "$TARGET_DIR"
 
-if [[ ! -x /opt/clawos/update/apply.sh ]]; then
-  echo "missing executable /opt/clawos/update/apply.sh"
+if [[ ! -x "$TARGET_DIR/apply.sh" ]]; then
+  echo "missing executable $TARGET_DIR/apply.sh"
   exit 1
 fi
 
-/opt/clawos/update/apply.sh
+"$TARGET_DIR/apply.sh"
 
 echo "$LATEST_TAG" >/etc/clawos/version
 systemctl restart openclaw-gateway.service
