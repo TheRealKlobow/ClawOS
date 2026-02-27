@@ -10,8 +10,15 @@ source "$STATE_FILE"
 # best-effort cleanup, never fail caller
 set +e
 
-if [[ -n "${MNT_ROOT:-}" ]] && findmnt -rn "$MNT_ROOT" >/dev/null 2>&1; then
-  umount "$MNT_ROOT"
+if [[ -n "${MNT_ROOT:-}" ]]; then
+  for p in run proc sys dev; do
+    if findmnt -rn "$MNT_ROOT/$p" >/dev/null 2>&1; then
+      umount "$MNT_ROOT/$p"
+    fi
+  done
+  if findmnt -rn "$MNT_ROOT" >/dev/null 2>&1; then
+    umount "$MNT_ROOT"
+  fi
 fi
 
 if [[ "${KPARTX_USED:-0}" == "1" && -n "${LOOP_DEV:-}" ]]; then

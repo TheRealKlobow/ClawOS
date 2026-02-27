@@ -5,7 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=-/etc/default/clawos-path
 EnvironmentFile=-/etc/default/openclaw-gateway
+ExecCondition=/bin/bash -lc 'cmd="$(command -v openclaw || true)"; [[ -n "$cmd" ]] && /usr/bin/test -x "$cmd"'
 ExecStart=/usr/bin/env openclaw gateway run --allow-unconfigured
 Restart=always
 RestartSec=5

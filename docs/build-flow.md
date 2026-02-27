@@ -20,9 +20,14 @@ set -a; source .env; set +a; bash image/build.sh
 3. `mount-overlay.sh`
    - mount rootfs rw
    - copy overlays with `cp -a`
-4. `enable-services.sh`
+4. `provision-runtime.sh`
+   - chroot install runtime deps (`curl`, `ca-certificates`, `gnupg`, `git`)
+   - install Node.js (NodeSource 22 preferred; distro fallback)
+   - install OpenClaw CLI globally (`npm install -g openclaw@latest`)
+   - verify `openclaw` resolves inside chroot
+5. `enable-services.sh`
    - offline systemd symlink enable + verification
-5. `validate-image.sh`
+6. `validate-image.sh`
    - artifact checks
 6. `image/build.sh`
    - produces `out/clawos-pi.img.xz`

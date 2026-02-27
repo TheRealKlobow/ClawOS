@@ -17,6 +17,7 @@ trap cleanup_with_status EXIT ERR INT TERM
 bash "$ROOT_DIR/image/scripts/prepare-base-image.sh"
 bash "$ROOT_DIR/image/scripts/inject-overlay.sh"
 bash "$ROOT_DIR/image/scripts/mount-overlay.sh"
+bash "$ROOT_DIR/image/scripts/provision-runtime.sh"
 bash "$ROOT_DIR/image/scripts/enable-services.sh"
 bash "$ROOT_DIR/image/scripts/validate-image.sh"
 

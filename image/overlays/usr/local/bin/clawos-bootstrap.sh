@@ -11,11 +11,11 @@ mkdir -p /var/lib/clawos /etc/default /etc/clawos
 # Branding + version
 hostnamectl set-hostname clawos || true
 echo "clawos" >/etc/hostname
-echo "v0.1.1" >/etc/clawos/version
+echo "v0.1.2" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 KLB ClawOS - Built by KLB Groups.com
-Version: v0.1.1
+Version: v0.1.2
 EOF
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
@@ -33,21 +33,10 @@ AUTO_UPDATE=false
 EOF
 fi
 
-# Install OpenClaw if missing (idempotent) with retry + timeout
+# OpenClaw CLI must be pre-baked during image build (no first-boot install)
 if ! command -v openclaw >/dev/null 2>&1; then
-  install_ok=0
-  for attempt in 1 2 3; do
-    echo "[$(date -Is)] install attempt ${attempt}/3"
-    if timeout 180 bash -c 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard'; then
-      install_ok=1
-      break
-    fi
-    sleep 3
-  done
-  if [[ "$install_ok" -ne 1 ]]; then
-    echo "openclaw install failed after 3 attempts"
-    exit 1
-  fi
+  echo "openclaw binary missing; image build provisioning incomplete"
+  exit 1
 fi
 
 # Provision env file from template if not present
