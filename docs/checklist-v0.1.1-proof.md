@@ -2,6 +2,14 @@
 
 Use this checklist exactly for release evidence capture.
 
+Preferred one-shot runner:
+
+```bash
+PI_HOST=pi@clawos.local bash scripts/proof-run-bundle-v0.1.1.sh
+# optional tar bundle:
+PROOF_TAR=true PI_HOST=pi@clawos.local bash scripts/proof-run-bundle-v0.1.1.sh
+```
+
 ## A) Linux builder proof
 
 - [ ] Record distro + kernel:
