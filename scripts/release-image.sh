@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${OUTPUT_IMAGE_PATH:=./out/clawos-v1.img}"
-[[ -f "$OUTPUT_IMAGE_PATH" ]]
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT_DIR="$ROOT_DIR/out"
+: "${OUTPUT_IMAGE_PATH:=$OUT_DIR/clawos-pi.img}"
+XZ_PATH="$OUTPUT_IMAGE_PATH.xz"
+CHECKSUM_PATH="$OUT_DIR/SHA256SUMS.txt"
+NOTES_PATH="$OUT_DIR/RELEASE_NOTES.md"
 
-echo "Release ready: $OUTPUT_IMAGE_PATH"
+[[ -f "$OUTPUT_IMAGE_PATH" ]] || { echo "ERROR: missing image: $OUTPUT_IMAGE_PATH" >&2; exit 1; }
+[[ -f "$XZ_PATH" ]] || { echo "ERROR: missing compressed image: $XZ_PATH" >&2; exit 1; }
+
+mkdir -p "$OUT_DIR"
+
+(
+  cd "$OUT_DIR"
+  sha256sum "$(basename "$OUTPUT_IMAGE_PATH")" "$(basename "$XZ_PATH")" >"$(basename "$CHECKSUM_PATH")"
+)
+
+cp "$ROOT_DIR/docs/release-notes-template.md" "$NOTES_PATH"
+
+echo "Release files generated:"
+echo "- $XZ_PATH"
+echo "- $CHECKSUM_PATH"
+echo "- $NOTES_PATH"
