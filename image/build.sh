@@ -19,6 +19,7 @@ bash "$ROOT_DIR/image/scripts/inject-overlay.sh"
 bash "$ROOT_DIR/image/scripts/mount-overlay.sh"
 bash "$ROOT_DIR/image/scripts/provision-runtime.sh"
 bash "$ROOT_DIR/image/scripts/enable-services.sh"
+bash "$ROOT_DIR/image/scripts/validate-rootfs-runtime.sh"
 bash "$ROOT_DIR/image/scripts/validate-image.sh"
 
 # xz artifact for release

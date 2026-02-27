@@ -27,7 +27,11 @@ set -a; source .env; set +a; bash image/build.sh
    - verify `openclaw` resolves inside chroot
 5. `enable-services.sh`
    - offline systemd symlink enable + verification
-6. `validate-image.sh`
+6. `validate-rootfs-runtime.sh`
+   - chroot checks for `node`/`nodejs`, `npm`, `openclaw`
+   - `openclaw --version` must succeed
+   - unit guard checks (`ExecCondition`, `EnvironmentFile`)
+7. `validate-image.sh`
    - artifact checks
 6. `image/build.sh`
    - produces `out/clawos-pi.img.xz`
