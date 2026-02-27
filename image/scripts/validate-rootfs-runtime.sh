@@ -25,8 +25,15 @@ mount --bind /sys "$MNT_ROOT/sys"
 mount --bind /proc "$MNT_ROOT/proc"
 mount --bind /run "$MNT_ROOT/run"
 
+CHROOT_PREFIX=(chroot "$MNT_ROOT")
+if file "$MNT_ROOT/bin/sh" | grep -qiE 'aarch64|arm64'; then
+  command -v qemu-aarch64-static >/dev/null 2>&1 || { echo "ERROR: qemu-aarch64-static required for arm64 chroot" >&2; exit 1; }
+  cp /usr/bin/qemu-aarch64-static "$MNT_ROOT/usr/bin/qemu-aarch64-static"
+  CHROOT_PREFIX=(chroot "$MNT_ROOT" /usr/bin/qemu-aarch64-static)
+fi
+
 # Build-time runtime checks inside chroot only
-chroot "$MNT_ROOT" /usr/bin/env bash -lc '
+"${CHROOT_PREFIX[@]}" /usr/bin/env bash -lc '
 set -euo pipefail
 
 NODE_BIN="$(command -v node || command -v nodejs || true)"

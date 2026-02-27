@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            xz-utils kpartx dosfstools e2fsprogs util-linux rsync jq curl ca-certificates gnupg
+            xz-utils kpartx dosfstools e2fsprogs util-linux rsync jq curl ca-certificates gnupg qemu-user-static file
 
       - name: Prepare base image
         run: |
