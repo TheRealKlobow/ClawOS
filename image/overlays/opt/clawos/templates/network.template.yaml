@@ -1,0 +1,16 @@
+# LAN-only v1 network template
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: true
+      dhcp6: false
+      # Optional static mode (off by default):
+      # dhcp4: false
+      # addresses: ["192.168.1.231/24"]
+      # routes:
+      #   - to: default
+      #     via: 192.168.1.1
+      # nameservers:
+      #   addresses: ["1.1.1.1", "8.8.8.8"]

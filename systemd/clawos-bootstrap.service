@@ -1,0 +1,13 @@
+[Unit]
+Description=ClawOS first-boot bootstrap
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/clawos/bootstrap.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clawos-bootstrap.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenClaw Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/openclaw-gateway
+ExecStart=/usr/bin/env openclaw gateway run --allow-unconfigured
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
