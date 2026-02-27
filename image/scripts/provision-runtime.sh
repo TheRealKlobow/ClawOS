@@ -66,6 +66,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
 
 which openclaw >/var/log/clawos-openclaw-path.log
+
+apt-get clean
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 '
 
 echo "Runtime dependencies + OpenClaw CLI provisioned in image rootfs"

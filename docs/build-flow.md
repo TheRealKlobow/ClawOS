@@ -17,10 +17,13 @@ set -a; source .env; set +a; bash image/build.sh
 2. `inject-overlay.sh`
    - loop attach + kpartx map
    - deterministic root partition detection
-3. `mount-overlay.sh`
+3. `expand-rootfs.sh`
+   - resize partition 2 to 100% of image
+   - run `e2fsck` + `resize2fs` before any chroot package installs
+4. `mount-overlay.sh`
    - mount rootfs rw
    - copy overlays with `cp -a`
-4. `provision-runtime.sh`
+5. `provision-runtime.sh`
    - chroot install runtime deps (`curl`, `ca-certificates`, `gnupg`, `git`)
    - install Node.js (NodeSource 22 preferred; distro fallback)
    - install OpenClaw CLI globally (`npm install -g openclaw@latest`)
