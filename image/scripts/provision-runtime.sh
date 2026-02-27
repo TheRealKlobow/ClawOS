@@ -51,7 +51,7 @@ ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npm" /usr/local/b
 ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npx" /usr/local/bin/npx
 
 NODE_ACTUAL="$(node -v | sed 's/^v//')"
-if [[ "$(printf '%s\n%s\n' "22.12.0" "$NODE_ACTUAL" | sort -V | tail -n1)" != "$NODE_ACTUAL" ]]; then
+if ! dpkg --compare-versions "$NODE_ACTUAL" ge "22.12.0"; then
   echo "ERROR: installed node version is below 22.12.0: $NODE_ACTUAL" >&2
   exit 1
 fi
