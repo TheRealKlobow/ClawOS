@@ -1,0 +1,9 @@
+[Unit]
+Description=ClawOS update check/apply
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecCondition=/bin/bash -c 'source /etc/clawos/clawos.env 2>/dev/null || true; [[ "${AUTO_UPDATE:-false}" == "true" ]]'
+ExecStart=/usr/local/bin/clawos-update

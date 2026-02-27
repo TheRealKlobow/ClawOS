@@ -9,10 +9,12 @@ source "$STATE_FILE"
 
 # D) offline service enable + verify
 WANTS_DIR="$MNT_ROOT/etc/systemd/system/multi-user.target.wants"
-mkdir -p "$WANTS_DIR"
+TIMERS_WANTS_DIR="$MNT_ROOT/etc/systemd/system/timers.target.wants"
+mkdir -p "$WANTS_DIR" "$TIMERS_WANTS_DIR"
 
 ln -sfn /etc/systemd/system/clawos-bootstrap.service "$WANTS_DIR/clawos-bootstrap.service"
 ln -sfn /etc/systemd/system/openclaw-gateway.service "$WANTS_DIR/openclaw-gateway.service"
+ln -sfn /etc/systemd/system/clawos-update.timer "$TIMERS_WANTS_DIR/clawos-update.timer"
 
 # verify links and targets
 for unit in clawos-bootstrap.service openclaw-gateway.service; do
@@ -27,5 +29,16 @@ for unit in clawos-bootstrap.service openclaw-gateway.service; do
     exit 1
   }
 done
+
+[[ -L "$TIMERS_WANTS_DIR/clawos-update.timer" ]] || { echo "ERROR: missing symlink for clawos-update.timer" >&2; exit 1; }
+update_target="$(readlink "$TIMERS_WANTS_DIR/clawos-update.timer")"
+[[ "$update_target" == "/etc/systemd/system/clawos-update.timer" ]] || {
+  echo "ERROR: wrong symlink target for clawos-update.timer -> $update_target" >&2
+  exit 1
+}
+[[ -f "$MNT_ROOT/etc/systemd/system/clawos-update.timer" ]] || {
+  echo "ERROR: unit file not present in rootfs: clawos-update.timer" >&2
+  exit 1
+}
 
 echo "Offline service links verified"

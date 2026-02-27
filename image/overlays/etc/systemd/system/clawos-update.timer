@@ -1,0 +1,10 @@
+[Unit]
+Description=Run ClawOS update check daily
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+Unit=clawos-update.service
+
+[Install]
+WantedBy=timers.target

@@ -1,11 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p /var/lib/clawos /etc/default
+LOG_FILE="/var/log/clawos-bootstrap.log"
+exec >>"$LOG_FILE" 2>&1
 
-# Install OpenClaw if missing (idempotent)
+echo "[$(date -Is)] clawos-bootstrap start"
+
+mkdir -p /var/lib/clawos /etc/default /etc/clawos
+
+# Branding + version
+hostnamectl set-hostname clawos || true
+echo "clawos" >/etc/hostname
+echo "v0.1.1" >/etc/clawos/version
+
+cat >/etc/issue <<'EOF'
+KLB ClawOS - Built by KLB Groups.com
+Version: v0.1.1
+EOF
+
+PRIMARY_IP="$(hostname -I | awk '{print $1}')"
+cat >/etc/motd <<EOF
+KLB ClawOS - Built by KLB Groups.com
+Device: $(hostname)
+IP: ${PRIMARY_IP}
+Gateway: ws://${PRIMARY_IP}:18789
+Repo: https://github.com/TheRealKlobow/ClawOS
+EOF
+
+if [[ ! -f /etc/clawos/clawos.env ]]; then
+  cat >/etc/clawos/clawos.env <<'EOF'
+AUTO_UPDATE=false
+EOF
+fi
+
+# Install OpenClaw if missing (idempotent) with retry + timeout
 if ! command -v openclaw >/dev/null 2>&1; then
-  curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw/main/install.sh | bash
+  install_ok=0
+  for attempt in 1 2 3; do
+    echo "[$(date -Is)] install attempt ${attempt}/3"
+    if timeout 180 bash -c 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard'; then
+      install_ok=1
+      break
+    fi
+    sleep 3
+  done
+  if [[ "$install_ok" -ne 1 ]]; then
+    echo "openclaw install failed after 3 attempts"
+    exit 1
+  fi
 fi
 
 # Provision env file from template if not present
@@ -53,3 +95,4 @@ systemctl enable openclaw-gateway.service
 systemctl restart openclaw-gateway.service
 
 touch /var/lib/clawos/bootstrap.done
+echo "[$(date -Is)] clawos-bootstrap complete"

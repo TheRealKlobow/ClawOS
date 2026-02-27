@@ -1,4 +1,4 @@
-# ClawOS v0.1.0 Release Notes (Template)
+# ClawOS v0.1.1 Release Notes (Template)
 
 ## Highlights
 

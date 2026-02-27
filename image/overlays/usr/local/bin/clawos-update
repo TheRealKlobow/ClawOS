@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG_FILE="/var/log/clawos-update.log"
+exec >>"$LOG_FILE" 2>&1
+
+echo "[$(date -Is)] clawos-update start"
+
+REPO="TheRealKlobow/ClawOS"
+API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+CURRENT_VERSION="$(cat /etc/clawos/version 2>/dev/null || echo v0.0.0)"
+WORK_DIR="/tmp/clawos-update.$$"
+mkdir -p "$WORK_DIR"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { echo "missing command: $1"; exit 1; }
+}
+
+for cmd in curl sha256sum tar systemctl python3; do
+  require_cmd "$cmd"
+done
+
+META_JSON="$WORK_DIR/latest.json"
+curl -fsSL "$API_URL" -o "$META_JSON"
+
+LATEST_TAG="$(python3 - <<'PY' "$META_JSON"
+import json,sys
+with open(sys.argv[1],'r',encoding='utf-8') as f:
+    j=json.load(f)
+print(j.get('tag_name','').strip())
+PY
+)"
+
+if [[ -z "$LATEST_TAG" ]]; then
+  echo "failed to parse latest release tag"
+  exit 1
+fi
+
+if [[ "$LATEST_TAG" == "$CURRENT_VERSION" ]]; then
+  echo "already on latest version: $CURRENT_VERSION"
+  exit 0
+fi
+
+if [[ "$(printf '%s\n%s\n' "$CURRENT_VERSION" "$LATEST_TAG" | sed 's/^v//' | sort -V | tail -n1)" != "${LATEST_TAG#v}" ]]; then
+  echo "latest tag ($LATEST_TAG) is not newer than current ($CURRENT_VERSION); skipping"
+  exit 0
+fi
+
+ARCHIVE_URL="$(python3 - <<'PY' "$META_JSON"
+import json,sys
+with open(sys.argv[1],'r',encoding='utf-8') as f:
+    j=json.load(f)
+assets=j.get('assets',[])
+for a in assets:
+    name=a.get('name','')
+    if name.endswith('.tar.gz'):
+        print(a.get('browser_download_url',''))
+        break
+PY
+)"
+
+CHECKSUM_URL="$(python3 - <<'PY' "$META_JSON"
+import json,sys
+with open(sys.argv[1],'r',encoding='utf-8') as f:
+    j=json.load(f)
+assets=j.get('assets',[])
+for a in assets:
+    name=a.get('name','')
+    if name == 'SHA256SUMS.txt':
+        print(a.get('browser_download_url',''))
+        break
+PY
+)"
+
+if [[ -z "$ARCHIVE_URL" || -z "$CHECKSUM_URL" ]]; then
+  echo "release assets missing (.tar.gz and/or SHA256SUMS.txt)"
+  exit 1
+fi
+
+ARCHIVE_PATH="$WORK_DIR/$(basename "$ARCHIVE_URL")"
+CHECKSUM_PATH="$WORK_DIR/SHA256SUMS.txt"
+
+curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH"
+curl -fsSL "$CHECKSUM_URL" -o "$CHECKSUM_PATH"
+
+CHECK_LINE="$(grep " $(basename "$ARCHIVE_PATH")$" "$CHECKSUM_PATH" || true)"
+if [[ -z "$CHECK_LINE" ]]; then
+  echo "checksum entry not found for $(basename "$ARCHIVE_PATH")"
+  exit 1
+fi
+
+echo "$CHECK_LINE" | (cd "$WORK_DIR" && sha256sum -c -)
+
+mkdir -p /opt/clawos/update
+rm -rf /opt/clawos/update/*
+tar -xzf "$ARCHIVE_PATH" -C /opt/clawos/update
+
+if [[ ! -x /opt/clawos/update/apply.sh ]]; then
+  echo "missing executable /opt/clawos/update/apply.sh"
+  exit 1
+fi
+
+/opt/clawos/update/apply.sh
+
+echo "$LATEST_TAG" >/etc/clawos/version
+systemctl restart openclaw-gateway.service
+
+echo "[$(date -Is)] updated successfully to $LATEST_TAG"
