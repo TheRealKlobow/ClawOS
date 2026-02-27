@@ -1,10 +1,30 @@
 # Build Flow
 
-1. Validate environment (`scripts/lint.sh` + template checks).
-2. Prepare base image (`image/scripts/prepare-base-image.sh`).
-3. Inject overlay (`image/scripts/inject-overlay.sh`).
-4. Enable required services (`image/scripts/enable-services.sh`).
-5. Validate image (`image/scripts/validate-image.sh`).
-6. Publish artifacts (`scripts/release-image.sh`).
+Linux builder only.
 
-All steps are scriptable and non-interactive.
+## Exact command
+
+```bash
+set -a; source .env; set +a; bash image/build.sh
+```
+
+## Pipeline
+
+1. `prepare-base-image.sh`
+   - Linux/tool/root preflight
+   - safe workdir checks
+   - copy base image -> `out/clawos-pi.img`
+2. `inject-overlay.sh`
+   - loop attach + kpartx map
+   - deterministic root partition detection
+3. `mount-overlay.sh`
+   - mount rootfs rw
+   - copy overlays with `cp -a`
+4. `enable-services.sh`
+   - offline systemd symlink enable + verification
+5. `validate-image.sh`
+   - artifact checks
+6. `image/build.sh`
+   - produces `out/clawos-pi.img.xz`
+
+Cleanup runs via trap and always attempts unmount + detach.
