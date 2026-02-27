@@ -11,11 +11,11 @@ mkdir -p /var/lib/clawos /etc/default /etc/clawos
 # Branding + version
 hostnamectl set-hostname clawos || true
 echo "clawos" >/etc/hostname
-echo "v1.7.1" >/etc/clawos/version
+echo "v1.7.2" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 KLB ClawOS - Built by KLB Groups.com
-Version: v1.7.1
+Version: v1.7.2
 EOF
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"

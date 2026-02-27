@@ -37,7 +37,24 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates gnupg git nodejs npm
+apt-get install -y --no-install-recommends curl ca-certificates gnupg git xz-utils
+
+# Install deterministic Node >=22.12.0 (avoid distro lag/conflicts)
+NODE_VER="v22.12.0"
+NODE_TAR="node-${NODE_VER}-linux-arm64.tar.xz"
+curl -fsSL "https://nodejs.org/dist/${NODE_VER}/${NODE_TAR}" -o "/tmp/${NODE_TAR}"
+mkdir -p /usr/local/lib/nodejs
+rm -rf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64"
+tar -xJf "/tmp/${NODE_TAR}" -C /usr/local/lib/nodejs
+ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/node" /usr/local/bin/node
+ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npm" /usr/local/bin/npm
+ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npx" /usr/local/bin/npx
+
+NODE_ACTUAL="$(node -v | sed 's/^v//')"
+if [[ "$(printf '%s\n%s\n' "22.12.0" "$NODE_ACTUAL" | sort -V | tail -n1)" != "$NODE_ACTUAL" ]]; then
+  echo "ERROR: installed node version is below 22.12.0: $NODE_ACTUAL" >&2
+  exit 1
+fi
 
 npm install -g openclaw@latest
 
@@ -52,10 +69,14 @@ cat >/etc/default/clawos-path <<EOF
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
 
-which openclaw >/var/log/clawos-openclaw-path.log
+{
+  echo "node: $(command -v node) $(node -v)"
+  echo "npm: $(command -v npm) $(npm -v)"
+  echo "openclaw: $(command -v openclaw)"
+} >/var/log/clawos-openclaw-path.log
 
 apt-get clean
-rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/node-v*.tar.xz
 '
 
 echo "Runtime dependencies + OpenClaw CLI provisioned in image rootfs"

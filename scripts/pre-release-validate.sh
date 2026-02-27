@@ -21,7 +21,7 @@ pass() {
 [[ -f "$ISSUE_FILE" ]] || fail "missing /etc/issue overlay"
 [[ -f "$ENV_FILE" ]] || fail "missing clawos.env overlay"
 
-EXPECTED_VERSION="v1.7.1"
+EXPECTED_VERSION="v1.7.2"
 ACTUAL_VERSION="$(tr -d '\r\n' < "$VERSION_FILE")"
 [[ "$ACTUAL_VERSION" == "$EXPECTED_VERSION" ]] || fail "version mismatch: expected $EXPECTED_VERSION got $ACTUAL_VERSION"
 pass "version match ($EXPECTED_VERSION)"
