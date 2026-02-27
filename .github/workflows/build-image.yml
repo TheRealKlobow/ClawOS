@@ -1,0 +1,10 @@
+name: build-image
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x image/build.sh image/scripts/*.sh
+      - run: echo "Image build wiring ready; base image fetch/mount runner config required."
