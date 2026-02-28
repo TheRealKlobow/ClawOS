@@ -87,8 +87,10 @@ openclaw gateway status
 Guided setup (recommended):
 
 ```bash
-sudo /usr/local/bin/clawos-setup-gateway.sh
+clawos setup
 ```
+
+(Equivalent low-level command: `sudo /usr/local/bin/clawos-setup-gateway.sh`)
 
 The guided flow asks for:
 - device name (default `klb-clawos`)

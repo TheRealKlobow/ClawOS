@@ -177,7 +177,7 @@ If origin mismatch appears, run:
 openclaw config set gateway.controlUi.allowedOrigins '["http://${PRIMARY_IP}:${GATEWAY_PORT}","http://127.0.0.1:${GATEWAY_PORT}","http://localhost:${GATEWAY_PORT}"]'
 
 Guided setup (name/token/port/LAN):
-sudo /usr/local/bin/clawos-setup-gateway.sh
+clawos setup
 EOF
 
 touch /var/lib/clawos/bootstrap.done

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  setup)
+    exec sudo /usr/local/bin/clawos-setup-gateway.sh "$@"
+    ;;
+  status)
+    exec openclaw gateway status "$@"
+    ;;
+  fix-origin)
+    exec sudo /usr/local/bin/clawos-fix-origin.sh "$@"
+    ;;
+  help|-h|--help)
+    cat <<'EOF'
+ClawOS helper command
+
+Usage:
+  clawos setup       Guided gateway setup (name/token/port/LAN)
+  clawos status      Show gateway status
+  clawos fix-origin  Apply allowed origins for current IP/port
+EOF
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    echo "Try: clawos help" >&2
+    exit 1
+    ;;
+esac
