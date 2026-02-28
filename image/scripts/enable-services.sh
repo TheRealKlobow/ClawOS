@@ -18,6 +18,15 @@ ln -sfn /etc/systemd/system/openclaw-gateway.service "$WANTS_DIR/openclaw-gatewa
 ln -sfn /etc/systemd/system/openclaw.service "$WANTS_DIR/openclaw.service"
 ln -sfn /etc/systemd/system/clawos-update.timer "$TIMERS_WANTS_DIR/clawos-update.timer"
 
+if [[ -f "$MNT_ROOT/lib/systemd/system/ssh.service" ]]; then
+  ln -sfn /lib/systemd/system/ssh.service "$WANTS_DIR/ssh.service"
+elif [[ -f "$MNT_ROOT/usr/lib/systemd/system/ssh.service" ]]; then
+  ln -sfn /usr/lib/systemd/system/ssh.service "$WANTS_DIR/ssh.service"
+else
+  echo "ERROR: ssh.service unit not found in image rootfs" >&2
+  exit 1
+fi
+
 if [[ -f "$MNT_ROOT/lib/systemd/system/systemd-networkd-wait-online.service" ]]; then
   ln -sfn /lib/systemd/system/systemd-networkd-wait-online.service "$NETONLINE_WANTS_DIR/systemd-networkd-wait-online.service"
 elif [[ -f "$MNT_ROOT/usr/lib/systemd/system/systemd-networkd-wait-online.service" ]]; then
@@ -55,6 +64,13 @@ if [[ -L "$NETONLINE_WANTS_DIR/systemd-networkd-wait-online.service" ]]; then
     echo "ERROR: wrong symlink target for systemd-networkd-wait-online.service -> $net_target" >&2
     exit 1
   fi
+fi
+
+[[ -L "$WANTS_DIR/ssh.service" ]] || { echo "ERROR: missing symlink for ssh.service" >&2; exit 1; }
+ssh_target="$(readlink "$WANTS_DIR/ssh.service")"
+if [[ "$ssh_target" != "/lib/systemd/system/ssh.service" && "$ssh_target" != "/usr/lib/systemd/system/ssh.service" ]]; then
+  echo "ERROR: wrong symlink target for ssh.service -> $ssh_target" >&2
+  exit 1
 fi
 
 echo "Offline service links verified"

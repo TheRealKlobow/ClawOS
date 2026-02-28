@@ -37,7 +37,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates gnupg git xz-utils python3 make g++
+apt-get install -y --no-install-recommends curl ca-certificates gnupg git xz-utils python3 make g++ sudo openssh-server
 
 # Install deterministic Node >=22.12.0 (avoid distro lag/conflicts)
 NODE_VER="v22.12.0"
@@ -71,11 +71,38 @@ cat >/etc/default/clawos-path <<EOF
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
 
+if id claw >/dev/null 2>&1; then
+  usermod -aG sudo claw
+else
+  useradd -m -s /bin/bash -G sudo claw
+fi
+mkdir -p /etc/sudoers.d
+cat >/etc/sudoers.d/90-claw <<EOF
+claw ALL=(ALL) NOPASSWD:ALL
+EOF
+chmod 0440 /etc/sudoers.d/90-claw
+
+if ! id -nG claw | tr " " "\n" | grep -qx sudo; then
+  echo "ERROR: user claw is not in sudo group" >&2
+  exit 1
+fi
+if ! su -s /bin/bash claw -c "sudo -n whoami" | grep -qx root; then
+  echo "ERROR: sudo validation failed for user claw" >&2
+  exit 1
+fi
+
+if [[ ! -f /etc/ssh/sshd_config ]]; then
+  echo "ERROR: openssh-server was not installed correctly" >&2
+  exit 1
+fi
+
 {
   echo "node: $(command -v node) $(node -v)"
   echo "npm: $(command -v npm) $(npm -v)"
   echo "corepack: $(command -v corepack)"
   echo "pnpm: $(command -v pnpm) $(pnpm -v)"
+  echo "sudo: $(command -v sudo)"
+  echo "sshd_config: /etc/ssh/sshd_config"
 } >/var/log/clawos-node-path.log
 
 apt-get clean

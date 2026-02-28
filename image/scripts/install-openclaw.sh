@@ -56,7 +56,11 @@ corepack enable
 corepack prepare "pnpm@${PNPM_VERSION}" --activate
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm not available" >&2; exit 1; }
 
-id claw >/dev/null 2>&1 || useradd -m -s /bin/bash claw
+if id claw >/dev/null 2>&1; then
+  usermod -aG sudo claw || true
+else
+  useradd -m -s /bin/bash -G sudo claw
+fi
 
 mkdir -p /opt
 rm -rf /opt/openclaw

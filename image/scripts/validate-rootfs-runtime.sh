@@ -38,6 +38,8 @@ set -euo pipefail
 
 NODE_BIN="$(command -v node || command -v nodejs || true)"
 [[ -n "$NODE_BIN" ]] || { echo "ERROR: node/nodejs not found" >&2; exit 1; }
+NODE_VERSION="$(node -v | sed "s/^v//")"
+dpkg --compare-versions "$NODE_VERSION" ge 22 || { echo "ERROR: node version must be >=22 (got ${NODE_VERSION})" >&2; exit 1; }
 
 NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || { echo "ERROR: npm not found" >&2; exit 1; }
@@ -53,6 +55,20 @@ PNPM_BIN="$(command -v pnpm || true)"
 [[ -f /etc/clawos/openclaw-ref ]] || { echo "ERROR: /etc/clawos/openclaw-ref missing" >&2; exit 1; }
 owner="$(stat -c %U:%G /opt/openclaw)"
 [[ "$owner" == "claw:claw" ]] || { echo "ERROR: /opt/openclaw owner must be claw:claw (got $owner)" >&2; exit 1; }
+
+command -v openclaw >/dev/null 2>&1 || { echo "ERROR: openclaw CLI is missing from PATH" >&2; exit 1; }
+openclaw --help >/dev/null 2>&1 || { echo "ERROR: openclaw --help failed" >&2; exit 1; }
+
+id claw >/dev/null 2>&1 || { echo "ERROR: user claw missing" >&2; exit 1; }
+id -nG claw | tr " " "\n" | grep -qx sudo || { echo "ERROR: user claw is not in sudo group" >&2; exit 1; }
+su -s /bin/bash claw -c "sudo -n whoami" | grep -qx root || { echo "ERROR: sudo whoami failed for claw user" >&2; exit 1; }
+
+if [[ -x /bin/systemctl || -x /usr/bin/systemctl ]]; then
+  systemctl is-enabled ssh | grep -qx enabled || { echo "ERROR: ssh service is not enabled" >&2; exit 1; }
+else
+  echo "ERROR: systemctl is not available in image" >&2
+  exit 1
+fi
 '
 
 UNIT_PATH="$MNT_ROOT/etc/systemd/system/openclaw.service"
@@ -63,5 +79,13 @@ grep -q '^ExecStart=/usr/local/bin/openclaw gateway run --allow-unconfigured$' "
 grep -q '^EnvironmentFile=-/etc/openclaw/openclaw.env$' "$UNIT_PATH" || { echo "ERROR: EnvironmentFile for openclaw.env missing" >&2; exit 1; }
 
 grep -q '^User=claw$' "$UNIT_PATH" || { echo "ERROR: openclaw.service must run as user claw" >&2; exit 1; }
+
+SSH_WANTS="$MNT_ROOT/etc/systemd/system/multi-user.target.wants/ssh.service"
+[[ -L "$SSH_WANTS" ]] || { echo "ERROR: ssh symlink missing in multi-user.target.wants" >&2; exit 1; }
+ssh_link_target="$(readlink "$SSH_WANTS")"
+if [[ "$ssh_link_target" != "/lib/systemd/system/ssh.service" && "$ssh_link_target" != "/usr/lib/systemd/system/ssh.service" ]]; then
+  echo "ERROR: ssh symlink target invalid: $ssh_link_target" >&2
+  exit 1
+fi
 
 echo "Rootfs runtime validation passed"
