@@ -8,8 +8,8 @@ Type=simple
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-/etc/default/clawos-path
 EnvironmentFile=-/etc/default/openclaw-gateway
-ExecCondition=/bin/bash -lc 'cmd="$(command -v openclaw || true)"; [[ -n "$cmd" ]] && /usr/bin/test -x "$cmd"'
-ExecStartPre=/bin/bash -lc 'PORT="${OPENCLAW_GATEWAY_PORT:-18789}"; if ss -ltn "( sport = :${PORT} )" | tail -n +2 | grep -q .; then echo "[ERROR] Port already in use: ${PORT}"; echo "[WHY] Another process is already listening on the configured gateway port."; echo "[FIX] Check listener: sudo ss -ltnp | grep :${PORT}"; echo "[FIX] Change port in /etc/default/openclaw-gateway then: sudo systemctl restart openclaw-gateway"; exit 1; fi'
+ExecCondition=/usr/bin/test -x /usr/local/bin/openclaw
+ExecStartPre=/usr/local/bin/openclaw-gateway-preflight.sh
 ExecStart=/usr/bin/env openclaw gateway run --allow-unconfigured
 Restart=always
 RestartSec=5

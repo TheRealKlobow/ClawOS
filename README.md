@@ -1,6 +1,11 @@
 # ClawOS
 
+**ClawOS • Made by KLB Groups**
+
 Public, installable Raspberry Pi image for running OpenClaw OS headless on LAN.
+
+- Repo: https://github.com/TheRealKlobow/ClawOS
+- Site: http://clawos.klbgroups.com (coming soon)
 
 ## QUICK START
 
@@ -78,6 +83,18 @@ sudo systemctl enable openclaw-gateway.service
 sudo systemctl restart openclaw-gateway.service
 openclaw gateway status
 ```
+
+Guided setup (recommended):
+
+```bash
+sudo /usr/local/bin/clawos-setup-gateway.sh
+```
+
+The guided flow asks for:
+- device name (default `klb-clawos`)
+- token/password
+- gateway port (example `18800`)
+- LAN mode on/off
 
 ## Release/versioning
 

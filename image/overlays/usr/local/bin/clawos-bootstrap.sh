@@ -14,8 +14,10 @@ echo "clawos" >/etc/hostname
 echo "v0.1.14" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
-KLB ClawOS - Built by KLB Groups.com
+ClawOS • Made by KLB Groups
 Version: v0.1.14
+Repo: https://github.com/TheRealKlobow/ClawOS
+Site: http://clawos.klbgroups.com (coming soon)
 EOF
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
@@ -155,7 +157,9 @@ systemctl enable openclaw-gateway.service
 systemctl restart openclaw-gateway.service
 
 cat >/etc/motd <<EOF
-KLB ClawOS - Built by KLB Groups.com
+ClawOS • Made by KLB Groups
+Repo: https://github.com/TheRealKlobow/ClawOS
+Site: http://clawos.klbgroups.com (coming soon)
 Device: $(hostname)
 IP: ${PRIMARY_IP}
 
@@ -169,6 +173,9 @@ Connection Summary
 
 If origin mismatch appears, run:
 openclaw config set gateway.controlUi.allowedOrigins '["http://${PRIMARY_IP}:${GATEWAY_PORT}","http://127.0.0.1:${GATEWAY_PORT}","http://localhost:${GATEWAY_PORT}"]'
+
+Guided setup (name/token/port/LAN):
+sudo /usr/local/bin/clawos-setup-gateway.sh
 EOF
 
 touch /var/lib/clawos/bootstrap.done
