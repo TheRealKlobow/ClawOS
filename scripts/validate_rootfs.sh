@@ -12,6 +12,7 @@ IMAGE_PATH="$1"
 LOOP_DEV=""
 ROOT_PART=""
 MNT_ROOT=""
+KPARTX_USED=0
 
 cleanup() {
   set +e
@@ -23,6 +24,9 @@ cleanup() {
     sudo umount "$MNT_ROOT" 2>/dev/null || true
     sudo rmdir "$MNT_ROOT" 2>/dev/null || true
   fi
+  if [[ "$KPARTX_USED" -eq 1 && -n "$LOOP_DEV" ]]; then
+    sudo kpartx -d "$LOOP_DEV" 2>/dev/null || true
+  fi
   if [[ -n "$LOOP_DEV" ]]; then
     sudo losetup -d "$LOOP_DEV" 2>/dev/null || true
   fi
@@ -30,14 +34,38 @@ cleanup() {
 trap cleanup EXIT
 
 LOOP_DEV="$(sudo losetup --find --show --partscan "$IMAGE_PATH")"
+loop_base="$(basename "$LOOP_DEV")"
+
+# Prefer direct p2 path when available.
 if [[ -b "${LOOP_DEV}p2" ]]; then
   ROOT_PART="${LOOP_DEV}p2"
-else
-  ROOT_PART="$(lsblk -lnpo NAME,PARTLABEL "$LOOP_DEV" | awk '$2 ~ /rootfs|ROOTFS/ {print $1; exit}')"
+fi
+
+# Otherwise, discover partitions via lsblk and prefer PARTLABEL rootfs, then 2nd partition, then last.
+if [[ -z "$ROOT_PART" ]]; then
+  mapfile -t loop_parts < <(lsblk -lnpo NAME,TYPE,PKNAME | awk -v pk="$loop_base" '$2=="part" && $3==pk {print $1}')
+  if [[ ${#loop_parts[@]} -eq 0 ]] && command -v kpartx >/dev/null 2>&1; then
+    sudo kpartx -av "$LOOP_DEV" >/dev/null
+    KPARTX_USED=1
+    sleep 1
+    mapfile -t loop_parts < <(lsblk -lnpo NAME,TYPE,PKNAME | awk -v pk="$loop_base" '$2=="part" && $3==pk {print $1}')
+  fi
+
+  if [[ ${#loop_parts[@]} -gt 0 ]]; then
+    ROOT_PART="$(lsblk -lnpo NAME,PARTLABEL "${loop_parts[@]}" | awk '$2 ~ /rootfs|ROOTFS/ {print $1; exit}')"
+    if [[ -z "$ROOT_PART" ]]; then
+      if [[ ${#loop_parts[@]} -ge 2 ]]; then
+        ROOT_PART="${loop_parts[1]}"
+      else
+        ROOT_PART="${loop_parts[-1]}"
+      fi
+    fi
+  fi
 fi
 
 [[ -n "$ROOT_PART" && -b "$ROOT_PART" ]] || {
   echo "ERROR: failed to locate root partition on $LOOP_DEV" >&2
+  lsblk -lnpo NAME,TYPE,PKNAME,PARTLABEL "$LOOP_DEV" || true
   exit 1
 }
 
