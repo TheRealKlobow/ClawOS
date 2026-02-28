@@ -132,12 +132,8 @@ echo "[validate] checking openclaw CLI"
 [[ "$(command -v openclaw)" == "/usr/local/bin/openclaw" ]]
 /usr/local/bin/openclaw --help >/dev/null
 
-echo "[validate] checking Control UI assets"
-if [[ -f /opt/openclaw/dist/control-ui/index.html ]]; then
-  :
-else
-  compgen -G "/opt/openclaw/dist/control-ui-assets-*.js" >/dev/null
-fi
+echo "[validate] checking Control UI runtime assets"
+test -f /opt/openclaw/dist/control-ui/index.html
 
 echo "[validate] checking /etc/openclaw/openclaw.env"
 test -f /etc/openclaw/openclaw.env

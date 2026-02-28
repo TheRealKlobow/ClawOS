@@ -63,6 +63,22 @@ To enable LAN access explicitly:
 4. Optional for explicit HTTP LAN mode: `OPENCLAW_LAN_HTTP_MODE=true` (not secure on public networks)
 5. `sudo systemctl restart openclaw-gateway`
 
+Command-only example:
+
+```bash
+sudo tee /etc/default/openclaw-gateway >/dev/null <<'EOF'
+OPENCLAW_GATEWAY_BIND=lan
+OPENCLAW_GATEWAY_PORT=18790
+OPENCLAW_GATEWAY_TOKEN=<token>
+OPENCLAW_LAN_HTTP_MODE=true
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable openclaw-gateway.service
+sudo systemctl restart openclaw-gateway.service
+openclaw gateway status
+```
+
 ## Release/versioning
 
 - Current release target: `v0.1.14`
