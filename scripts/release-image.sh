@@ -16,7 +16,8 @@ RUNTIME_BUNDLE_PATH="$(bash "$ROOT_DIR/scripts/build-runtime-bundle.sh")"
 
 (
   cd "$OUT_DIR"
-  sha256sum "$(basename "$OUTPUT_IMAGE_PATH")" "$(basename "$XZ_PATH")" "$(basename "$RUNTIME_BUNDLE_PATH")" >"$(basename "$CHECKSUM_PATH")"
+  # Only checksum published artifacts. The raw .img is an intermediate build file and is not released.
+  sha256sum "$(basename "$XZ_PATH")" "$(basename "$RUNTIME_BUNDLE_PATH")" >"$(basename "$CHECKSUM_PATH")"
 )
 
 cp "$ROOT_DIR/docs/release-notes-template.md" "$NOTES_PATH"
