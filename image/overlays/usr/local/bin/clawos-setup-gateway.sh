@@ -5,6 +5,12 @@ CFG="/etc/default/openclaw-gateway"
 mkdir -p /etc/default
 [[ -f "$CFG" ]] || touch "$CFG"
 
+TARGET_USER="${SUDO_USER:-claw}"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+TARGET_HOME="${TARGET_HOME:-/home/$TARGET_USER}"
+USER_CFG_DIR="$TARGET_HOME/.openclaw"
+USER_CFG_FILE="$USER_CFG_DIR/openclaw.json"
+
 echo "ClawOS • Made by KLB Groups"
 echo "Gateway guided setup"
 echo
@@ -55,6 +61,28 @@ OPENCLAW_LAN_HTTP_MODE=${LAN_HTTP_MODE}
 EOF
 chmod 600 "$CFG"
 
+# Keep user CLI/gateway config in sync with system gateway config so
+# `openclaw gateway status` reflects the same bind/port/token choices.
+mkdir -p "$USER_CFG_DIR"
+ESC_TOKEN="${TOKEN//\\/\\\\}"
+ESC_TOKEN="${ESC_TOKEN//\"/\\\"}"
+cat > "$USER_CFG_FILE" <<EOF
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "${BIND}",
+    "port": ${PORT},
+    "auth": {
+      "mode": "token",
+      "token": "${ESC_TOKEN}"
+    }
+  }
+}
+EOF
+chown -R "$TARGET_USER":"$TARGET_USER" "$USER_CFG_DIR"
+chmod 700 "$USER_CFG_DIR"
+chmod 600 "$USER_CFG_FILE"
+
 hostnamectl set-hostname "$DEVICE_NAME" || true
 echo "$DEVICE_NAME" >/etc/hostname
 
@@ -78,6 +106,7 @@ echo "- UI: http://${PRIMARY_IP:-127.0.0.1}:${PORT}/"
 echo "- WS: ws://${PRIMARY_IP:-127.0.0.1}:${PORT}"
 echo "- Token: ${TOKEN}"
 echo "- Allowed origins: ${ALLOWED_ORIGINS_STATUS}"
+echo "- Synced CLI config: ${USER_CFG_FILE}"
 echo "- Repo: https://github.com/TheRealKlobow/ClawOS"
 echo "- Site: http://clawos.klbgroups.com (coming soon)"
 if [[ "$LAN_HTTP_MODE" == "true" ]]; then
