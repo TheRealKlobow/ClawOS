@@ -11,7 +11,14 @@ WorkingDirectory=/opt/openclaw
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway
 Restart=always
-RestartSec=5
+RestartSec=3
+StartLimitIntervalSec=60
+StartLimitBurst=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target

@@ -6,6 +6,8 @@ UPDATER="$ROOT_DIR/image/overlays/usr/local/bin/clawos-update"
 VERSION_FILE="$ROOT_DIR/image/overlays/etc/clawos/version"
 ISSUE_FILE="$ROOT_DIR/image/overlays/etc/issue"
 ENV_FILE="$ROOT_DIR/image/overlays/etc/clawos/clawos.env"
+ENV_EXAMPLE="$ROOT_DIR/.env.example"
+OPENCLAW_SERVICE="$ROOT_DIR/image/overlays/etc/systemd/system/openclaw.service"
 
 fail() {
   echo "[FAIL] $*" >&2
@@ -20,8 +22,10 @@ pass() {
 [[ -f "$VERSION_FILE" ]] || fail "missing version file"
 [[ -f "$ISSUE_FILE" ]] || fail "missing /etc/issue overlay"
 [[ -f "$ENV_FILE" ]] || fail "missing clawos.env overlay"
+[[ -f "$ENV_EXAMPLE" ]] || fail "missing .env.example"
+[[ -f "$OPENCLAW_SERVICE" ]] || fail "missing openclaw.service overlay"
 
-EXPECTED_VERSION="v0.1.6"
+EXPECTED_VERSION="v0.1.7"
 ACTUAL_VERSION="$(tr -d '\r\n' < "$VERSION_FILE")"
 [[ "$ACTUAL_VERSION" == "$EXPECTED_VERSION" ]] || fail "version mismatch: expected $EXPECTED_VERSION got $ACTUAL_VERSION"
 pass "version match ($EXPECTED_VERSION)"
@@ -31,6 +35,13 @@ pass "branding issue file contains expected version"
 
 grep -q '^AUTO_UPDATE=false$' "$ENV_FILE" || fail "AUTO_UPDATE default must be false"
 pass "AUTO_UPDATE default is false"
+
+grep -q '^OPENCLAW_REF=' "$ENV_EXAMPLE" || fail "OPENCLAW_REF must be pinned in .env.example"
+pass "OPENCLAW_REF pin present in .env.example"
+
+grep -q '^ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway$' "$OPENCLAW_SERVICE" || fail "openclaw.service ExecStart mismatch"
+grep -q '^NoNewPrivileges=true$' "$OPENCLAW_SERVICE" || fail "openclaw.service hardening missing NoNewPrivileges"
+pass "openclaw.service start command + hardening validated"
 
 # Update dry-run (static behavior check): verify script includes current==latest no-op path
 grep -q 'already on latest version' "$UPDATER" || fail "updater missing latest-version no-op guard"

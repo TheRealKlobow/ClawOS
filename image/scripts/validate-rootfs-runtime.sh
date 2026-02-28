@@ -42,12 +42,12 @@ NODE_BIN="$(command -v node || command -v nodejs || true)"
 NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || { echo "ERROR: npm not found" >&2; exit 1; }
 
-OPENCLAW_BIN="$(command -v openclaw || true)"
-if [[ -n "$OPENCLAW_BIN" ]]; then
-  [[ -x "$OPENCLAW_BIN" ]] || { echo "ERROR: openclaw exists but is not executable" >&2; exit 1; }
-else
-  [[ -f /opt/openclaw/scripts/run-node.mjs ]] || { echo "ERROR: neither openclaw binary nor /opt/openclaw/scripts/run-node.mjs found" >&2; exit 1; }
-fi
+[[ -d /opt/openclaw ]] || { echo "ERROR: /opt/openclaw missing" >&2; exit 1; }
+[[ -f /opt/openclaw/scripts/run-node.mjs ]] || { echo "ERROR: OpenClaw entrypoint missing" >&2; exit 1; }
+[[ -f /etc/openclaw/version ]] || { echo "ERROR: /etc/openclaw/version missing" >&2; exit 1; }
+[[ -f /etc/clawos/openclaw-ref ]] || { echo "ERROR: /etc/clawos/openclaw-ref missing" >&2; exit 1; }
+owner="$(stat -c %U:%G /opt/openclaw)"
+[[ "$owner" == "claw:claw" ]] || { echo "ERROR: /opt/openclaw owner must be claw:claw (got $owner)" >&2; exit 1; }
 '
 
 UNIT_PATH="$MNT_ROOT/etc/systemd/system/openclaw.service"

@@ -33,8 +33,9 @@ if file "$MNT_ROOT/bin/sh" | grep -qiE 'aarch64|arm64'; then
 fi
 
 OPENCLAW_REPO_URL="${OPENCLAW_REPO_URL:-https://github.com/openclaw/openclaw.git}"
+: "${OPENCLAW_REF:?ERROR: OPENCLAW_REF must be set (tag or commit)}"
 
-"${CHROOT_PREFIX[@]}" /usr/bin/env OPENCLAW_REPO_URL="$OPENCLAW_REPO_URL" bash -lc '
+"${CHROOT_PREFIX[@]}" /usr/bin/env OPENCLAW_REPO_URL="$OPENCLAW_REPO_URL" OPENCLAW_REF="$OPENCLAW_REF" bash -lc '
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -55,9 +56,11 @@ id claw >/dev/null 2>&1 || useradd -m -s /bin/bash claw
 
 mkdir -p /opt
 rm -rf /opt/openclaw
-git clone --depth 1 "$OPENCLAW_REPO_URL" /opt/openclaw
+git clone "$OPENCLAW_REPO_URL" /opt/openclaw
 
 cd /opt/openclaw
+git fetch --all --tags --prune
+git checkout "$OPENCLAW_REF"
 if [[ -f package-lock.json ]]; then
   npm ci --omit=dev
 else
@@ -73,10 +76,25 @@ if [[ -f /opt/openclaw/openclaw.mjs ]]; then
   ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw
 fi
 
+REF_RESOLVED="$(git rev-parse --short HEAD)"
+REF_NAME="$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match 2>/dev/null || echo detached)"
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+mkdir -p /etc/openclaw /etc/clawos
+cat >/etc/openclaw/version <<EOF
+Commit: ${REF_RESOLVED}
+Ref: ${REF_NAME}
+PinnedRef: ${OPENCLAW_REF}
+BuildDate: ${BUILD_DATE}
+EOF
+echo "${OPENCLAW_REF}" >/etc/clawos/openclaw-ref
+
 chown -R claw:claw /opt/openclaw
 
+dpkg --configure -a
+apt-get -f install -y
 apt-get clean
-rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/*
+chown -R claw:claw /opt/openclaw
 '
 
 echo "Installed OpenClaw source into /opt/openclaw"

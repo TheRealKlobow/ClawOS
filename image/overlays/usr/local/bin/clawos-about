@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMG_VER="$(cat /etc/clawos/version 2>/dev/null || echo unknown)"
+OC_COMMIT="$(awk -F': ' '/^Commit:/{print $2}' /etc/openclaw/version 2>/dev/null || echo unknown)"
+OC_REF="$(awk -F': ' '/^Ref:/{print $2}' /etc/openclaw/version 2>/dev/null || echo unknown)"
+NODE_VER="$(node -v 2>/dev/null || echo missing)"
+SVC_STATE="$(systemctl is-active openclaw 2>/dev/null || echo inactive)"
+
+echo "ClawOS Image: ${IMG_VER}"
+echo "OpenClaw Ref: ${OC_COMMIT} (${OC_REF})"
+echo "Node Version: ${NODE_VER}"
+echo "Service: ${SVC_STATE}"

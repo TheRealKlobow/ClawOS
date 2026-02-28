@@ -17,6 +17,9 @@ cp -a "$ROOT_DIR/image/overlays/." "$MNT_ROOT/"
 chmod 0755 "$MNT_ROOT/usr/local/bin/clawos-bootstrap.sh"
 chmod 0755 "$MNT_ROOT/usr/local/bin/openclaw-healthcheck.sh"
 chmod 0755 "$MNT_ROOT/usr/local/bin/clawos-update"
+if [[ -f "$MNT_ROOT/usr/local/bin/clawos-about" ]]; then
+  chmod 0755 "$MNT_ROOT/usr/local/bin/clawos-about"
+fi
 
 cat >"$STATE_FILE" <<EOF
 ROOT_DIR=$ROOT_DIR
