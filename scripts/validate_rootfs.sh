@@ -59,14 +59,17 @@ echo "[validate] checking ssh service enabled"
 [[ "$(systemctl is-enabled ssh)" == "enabled" ]]
 
 echo "[validate] checking ssh runtime directory configuration"
-if ! systemctl cat ssh.service | grep -q "RuntimeDirectory=sshd"; then
+if ! grep -Rqs "^RuntimeDirectory=sshd$" /etc/systemd/system/ssh.service.d /lib/systemd/system/ssh.service /usr/lib/systemd/system/ssh.service 2>/dev/null; then
   test -f /etc/tmpfiles.d/sshd.conf
 fi
 
 echo "[validate] checking no conflicting ssh.socket enablement"
-if systemctl list-unit-files ssh.socket --no-legend --no-pager 2>/dev/null | grep -q "ssh\.socket"; then
-  socket_state="$(systemctl is-enabled ssh.socket || true)"
-  [[ "$socket_state" == "masked" || "$socket_state" == "disabled" || "$socket_state" == "static" ]]
+if [[ -L /etc/systemd/system/ssh.socket ]]; then
+  socket_target="$(readlink /etc/systemd/system/ssh.socket)"
+  [[ "$socket_target" == "/dev/null" ]]
+elif [[ -e /etc/systemd/system/sockets.target.wants/ssh.socket ]]; then
+  echo "ssh.socket is enabled via sockets.target.wants" >&2
+  exit 1
 fi
 
 echo "[validate] checking claw user and sudo package/group"
