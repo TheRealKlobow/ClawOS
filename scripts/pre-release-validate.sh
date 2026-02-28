@@ -25,7 +25,7 @@ pass() {
 [[ -f "$ENV_EXAMPLE" ]] || fail "missing .env.example"
 [[ -f "$OPENCLAW_SERVICE" ]] || fail "missing openclaw.service overlay"
 
-EXPECTED_VERSION="v0.1.7"
+EXPECTED_VERSION="v0.1.8"
 ACTUAL_VERSION="$(tr -d '\r\n' < "$VERSION_FILE")"
 [[ "$ACTUAL_VERSION" == "$EXPECTED_VERSION" ]] || fail "version mismatch: expected $EXPECTED_VERSION got $ACTUAL_VERSION"
 pass "version match ($EXPECTED_VERSION)"
@@ -37,9 +37,10 @@ grep -q '^AUTO_UPDATE=false$' "$ENV_FILE" || fail "AUTO_UPDATE default must be f
 pass "AUTO_UPDATE default is false"
 
 grep -q '^OPENCLAW_REF=' "$ENV_EXAMPLE" || fail "OPENCLAW_REF must be pinned in .env.example"
+grep -q '^OPENCLAW_REF=[^[:space:]]\+$' "$ENV_EXAMPLE" || fail "OPENCLAW_REF must be non-empty in .env.example"
 pass "OPENCLAW_REF pin present in .env.example"
 
-grep -q '^ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway$' "$OPENCLAW_SERVICE" || fail "openclaw.service ExecStart mismatch"
+grep -q '^ExecStart=/usr/local/bin/openclaw gateway$' "$OPENCLAW_SERVICE" || fail "openclaw.service ExecStart mismatch"
 grep -q '^NoNewPrivileges=true$' "$OPENCLAW_SERVICE" || fail "openclaw.service hardening missing NoNewPrivileges"
 pass "openclaw.service start command + hardening validated"
 

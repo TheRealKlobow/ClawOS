@@ -37,7 +37,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates gnupg git xz-utils
+apt-get install -y --no-install-recommends curl ca-certificates gnupg git xz-utils python3 make g++
 
 # Install deterministic Node >=22.12.0 (avoid distro lag/conflicts)
 NODE_VER="v22.12.0"
@@ -49,12 +49,20 @@ tar -xJf "/tmp/${NODE_TAR}" -C /usr/local/lib/nodejs
 ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/node" /usr/local/bin/node
 ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npm" /usr/local/bin/npm
 ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/npx" /usr/local/bin/npx
+if [[ -x "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/corepack" ]]; then
+  ln -sf "/usr/local/lib/nodejs/node-${NODE_VER}-linux-arm64/bin/corepack" /usr/local/bin/corepack
+fi
 
 NODE_ACTUAL="$(node -v | sed 's/^v//')"
 if ! dpkg --compare-versions "$NODE_ACTUAL" ge "22.12.0"; then
   echo "ERROR: installed node version is below 22.12.0: $NODE_ACTUAL" >&2
   exit 1
 fi
+
+command -v corepack >/dev/null 2>&1 || { echo "ERROR: corepack missing after Node install" >&2; exit 1; }
+corepack enable
+corepack prepare pnpm@latest --activate
+command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm not available after corepack activation" >&2; exit 1; }
 
 mkdir -p /etc/default
 cat >/etc/default/clawos-path <<EOF
@@ -64,6 +72,8 @@ EOF
 {
   echo "node: $(command -v node) $(node -v)"
   echo "npm: $(command -v npm) $(npm -v)"
+  echo "corepack: $(command -v corepack)"
+  echo "pnpm: $(command -v pnpm) $(pnpm -v)"
 } >/var/log/clawos-node-path.log
 
 apt-get clean

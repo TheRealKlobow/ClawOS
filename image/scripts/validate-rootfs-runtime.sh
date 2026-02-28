@@ -41,9 +41,14 @@ NODE_BIN="$(command -v node || command -v nodejs || true)"
 
 NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || { echo "ERROR: npm not found" >&2; exit 1; }
+COREPACK_BIN="$(command -v corepack || true)"
+[[ -n "$COREPACK_BIN" ]] || { echo "ERROR: corepack not found" >&2; exit 1; }
+PNPM_BIN="$(command -v pnpm || true)"
+[[ -n "$PNPM_BIN" ]] || { echo "ERROR: pnpm not found" >&2; exit 1; }
 
 [[ -d /opt/openclaw ]] || { echo "ERROR: /opt/openclaw missing" >&2; exit 1; }
-[[ -f /opt/openclaw/scripts/run-node.mjs ]] || { echo "ERROR: OpenClaw entrypoint missing" >&2; exit 1; }
+[[ -f /opt/openclaw/openclaw.mjs ]] || { echo "ERROR: /opt/openclaw/openclaw.mjs missing" >&2; exit 1; }
+[[ -f /opt/openclaw/dist/entry.mjs || -f /opt/openclaw/dist/entry.js ]] || { echo "ERROR: OpenClaw dist entry missing" >&2; exit 1; }
 [[ -f /etc/openclaw/version ]] || { echo "ERROR: /etc/openclaw/version missing" >&2; exit 1; }
 [[ -f /etc/clawos/openclaw-ref ]] || { echo "ERROR: /etc/clawos/openclaw-ref missing" >&2; exit 1; }
 owner="$(stat -c %U:%G /opt/openclaw)"
@@ -54,7 +59,7 @@ UNIT_PATH="$MNT_ROOT/etc/systemd/system/openclaw.service"
 [[ -f "$UNIT_PATH" ]] || { echo "ERROR: missing unit file: $UNIT_PATH" >&2; exit 1; }
 
 grep -q '^WorkingDirectory=/opt/openclaw$' "$UNIT_PATH" || { echo "ERROR: WorkingDirectory missing/incorrect in openclaw.service" >&2; exit 1; }
-grep -q '^ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway$' "$UNIT_PATH" || { echo "ERROR: ExecStart missing/incorrect in openclaw.service" >&2; exit 1; }
+grep -q '^ExecStart=/usr/local/bin/openclaw gateway$' "$UNIT_PATH" || { echo "ERROR: ExecStart missing/incorrect in openclaw.service" >&2; exit 1; }
 
 grep -q '^User=claw$' "$UNIT_PATH" || { echo "ERROR: openclaw.service must run as user claw" >&2; exit 1; }
 

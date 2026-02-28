@@ -47,10 +47,13 @@ dpkg --configure -a || true
 apt-get -f install -y || true
 
 apt-get update
-apt-get install -y --no-install-recommends git curl ca-certificates
+apt-get install -y --no-install-recommends git curl ca-certificates python3 make g++
 
 command -v node >/dev/null 2>&1 || { echo "ERROR: node not present; run provision-runtime first" >&2; exit 1; }
-command -v npm >/dev/null 2>&1 || { echo "ERROR: npm not present; run provision-runtime first" >&2; exit 1; }
+command -v corepack >/dev/null 2>&1 || { echo "ERROR: corepack not present; run provision-runtime first" >&2; exit 1; }
+corepack enable
+corepack prepare pnpm@latest --activate
+command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm not available" >&2; exit 1; }
 
 id claw >/dev/null 2>&1 || useradd -m -s /bin/bash claw
 
@@ -61,19 +64,22 @@ git clone "$OPENCLAW_REPO_URL" /opt/openclaw
 cd /opt/openclaw
 git fetch --all --tags --prune
 git checkout "$OPENCLAW_REF"
-if [[ -f package-lock.json ]]; then
-  npm ci --omit=dev
-else
-  npm install --omit=dev
-fi
+pnpm install --frozen-lockfile || pnpm install
+pnpm build
 
-if npm run | grep -qE "^\s*build"; then
-  npm run build || true
+if [[ -f /opt/openclaw/dist/entry.mjs || -f /opt/openclaw/dist/entry.js ]]; then
+  :
+else
+  echo "ERROR: OpenClaw build output missing dist entry" >&2
+  exit 1
 fi
 
 if [[ -f /opt/openclaw/openclaw.mjs ]]; then
   chmod +x /opt/openclaw/openclaw.mjs
   ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw
+else
+  echo "ERROR: /opt/openclaw/openclaw.mjs missing" >&2
+  exit 1
 fi
 
 REF_RESOLVED="$(git rev-parse --short HEAD)"
@@ -88,6 +94,8 @@ BuildDate: ${BUILD_DATE}
 EOF
 echo "${OPENCLAW_REF}" >/etc/clawos/openclaw-ref
 
+pnpm prune --prod || true
+
 chown -R claw:claw /opt/openclaw
 
 dpkg --configure -a
@@ -95,6 +103,10 @@ apt-get -f install -y
 apt-get clean
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/*
 chown -R claw:claw /opt/openclaw
+if find /opt/openclaw -xdev -uid 0 -print -quit | grep -q .; then
+  echo "ERROR: root-owned files remain in /opt/openclaw" >&2
+  exit 1
+fi
 '
 
 echo "Installed OpenClaw source into /opt/openclaw"

@@ -9,7 +9,7 @@ User=claw
 Group=claw
 WorkingDirectory=/opt/openclaw
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway
+ExecStart=/usr/local/bin/openclaw gateway
 Restart=always
 RestartSec=3
 StartLimitIntervalSec=60

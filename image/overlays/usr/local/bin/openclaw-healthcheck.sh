@@ -19,6 +19,20 @@ else
   state=2
 fi
 
+if command -v pnpm >/dev/null 2>&1; then
+  echo "[OK] pnpm: $(command -v pnpm) ($(pnpm -v))"
+else
+  echo "[WARN] pnpm missing"
+  [[ $state -lt 1 ]] && state=1
+fi
+
+if [[ -f /opt/openclaw/dist/entry.mjs || -f /opt/openclaw/dist/entry.js ]]; then
+  echo "[OK] OpenClaw dist entry exists"
+else
+  echo "[FAIL] OpenClaw dist entry missing"
+  state=2
+fi
+
 if [[ -f /etc/openclaw/version ]]; then
   echo "[OK] /etc/openclaw/version present"
   cat /etc/openclaw/version
@@ -63,8 +77,8 @@ if [[ "$active_state" != "active" ]]; then
 fi
 
 if [[ $state -ne 0 ]]; then
-  echo "--- Last 50 openclaw logs ---"
-  journalctl -u openclaw --no-pager -n 50 || true
+  echo "--- Last 80 openclaw logs ---"
+  journalctl -u openclaw --no-pager -n 80 || true
 fi
 
 case "$state" in

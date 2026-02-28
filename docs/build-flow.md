@@ -27,10 +27,12 @@ set -a; source .env; set +a; bash image/build.sh
 5. `provision-runtime.sh`
    - install runtime dependencies in chroot
    - install Node.js runtime (>=22.12.0)
+   - enable Corepack + activate pnpm
 6. `install-openclaw.sh`
-   - clone OpenClaw into `/opt/openclaw`
-   - install production dependencies
-   - run optional build if present
+   - requires pinned `OPENCLAW_REF`
+   - clone OpenClaw into `/opt/openclaw` and checkout pinned ref
+   - install/build with pnpm
+   - verify `dist/entry.mjs` or `dist/entry.js`
 7. `enable-services.sh`
    - offline systemd symlink enable + verification (`openclaw.service`, bootstrap, timers)
 8. `validate-rootfs-runtime.sh`
