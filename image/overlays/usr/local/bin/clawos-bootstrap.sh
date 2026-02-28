@@ -11,6 +11,10 @@ mkdir -p /var/lib/clawos /etc/default /etc/clawos
 # Branding + version
 hostnamectl set-hostname klb-clawos || true
 echo "klb-clawos" >/etc/hostname
+if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
+  sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
+  echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
+fi
 echo "v0.1.16" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'

@@ -36,6 +36,15 @@ openclaw config set gateway.auth.token "$TOKEN" >/dev/null || true
 openclaw config set gateway.remote.token "$TOKEN" >/dev/null || true
 openclaw config unset gateway.remote.url >/dev/null || true
 
+# Heal hostname resolution drift that causes sudo "unable to resolve host" warnings.
+H="$(hostname 2>/dev/null || true)"
+if [[ -n "$H" ]] && [[ -w /etc/hosts ]]; then
+  if ! grep -qE "^127\.0\.1\.1\s+${H}(\s|$)" /etc/hosts; then
+    sed -i '/^127\.0\.1\.1\s/d' /etc/hosts || true
+    echo "127.0.1.1 ${H}" >>/etc/hosts || true
+  fi
+fi
+
 openclaw gateway stop >/dev/null 2>&1 || true
 pkill -f "openclaw.*gateway" >/dev/null 2>&1 || true
 

@@ -97,6 +97,10 @@ if ! grep -qE "^127\.0\.1\.1\s+${DEVICE_NAME}(\s|$)" /etc/hosts 2>/dev/null; the
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo "127.0.1.1 ${DEVICE_NAME}" >>/etc/hosts 2>/dev/null || true
 fi
+CURRENT_HOST="$(hostname 2>/dev/null || true)"
+if [[ -n "$CURRENT_HOST" ]] && ! grep -qE "^127\.0\.1\.1\s+${CURRENT_HOST}(\s|$)" /etc/hosts 2>/dev/null; then
+  echo "127.0.1.1 ${CURRENT_HOST}" >>/etc/hosts 2>/dev/null || true
+fi
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
 ALLOWED_ORIGINS_STATUS="needs update"
