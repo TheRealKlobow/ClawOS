@@ -96,6 +96,11 @@ The guided flow asks for:
 - gateway port (example `18800`)
 - LAN mode on/off
 
+Diagnostics are now action-first. On gateway startup errors, preflight prints:
+- what happened
+- likely why
+- exact command(s) to fix
+
 ## Release/versioning
 
 - Current release target: `v0.1.14`

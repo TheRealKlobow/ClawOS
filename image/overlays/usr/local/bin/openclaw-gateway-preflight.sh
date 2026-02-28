@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
+if [[ ! -x /usr/local/bin/openclaw ]]; then
+  echo "[ERROR] What happened: /usr/local/bin/openclaw is missing or not executable"
+  echo "[WHY] Likely cause: image provisioning did not finish correctly"
+  echo "[FIX] Verify binary: ls -l /usr/local/bin/openclaw"
+  echo "[FIX] Reinstall runtime/image or run guided setup again"
+  exit 1
+fi
+
+PORT="${OPENCLAW_GATEWAY_PORT:-18790}"
 
 if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
   echo "[ERROR] What happened: invalid OPENCLAW_GATEWAY_PORT='$PORT'"

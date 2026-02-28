@@ -8,7 +8,6 @@ Type=simple
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-/etc/default/clawos-path
 EnvironmentFile=-/etc/default/openclaw-gateway
-ExecCondition=/usr/bin/test -x /usr/local/bin/openclaw
 ExecStartPre=/usr/local/bin/openclaw-gateway-preflight.sh
 ExecStart=/usr/bin/env openclaw gateway run --allow-unconfigured
 Restart=always

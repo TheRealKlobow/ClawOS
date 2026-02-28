@@ -59,9 +59,10 @@ hostnamectl set-hostname "$DEVICE_NAME" || true
 echo "$DEVICE_NAME" >/etc/hostname
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
-if [[ -n "${PRIMARY_IP}" ]]; then
-  ORIGINS_JSON="[\"http://${PRIMARY_IP}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
-  openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 || true
+ALLOWED_ORIGINS_STATUS="needs update"
+ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
+if openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1; then
+  ALLOWED_ORIGINS_STATUS="OK"
 fi
 
 systemctl daemon-reload
@@ -76,6 +77,14 @@ echo "- Port: ${PORT}"
 echo "- UI: http://${PRIMARY_IP:-127.0.0.1}:${PORT}/"
 echo "- WS: ws://${PRIMARY_IP:-127.0.0.1}:${PORT}"
 echo "- Token: ${TOKEN}"
+echo "- Allowed origins: ${ALLOWED_ORIGINS_STATUS}"
+echo "- Repo: https://github.com/TheRealKlobow/ClawOS"
+echo "- Site: http://clawos.klbgroups.com (coming soon)"
 if [[ "$LAN_HTTP_MODE" == "true" ]]; then
   echo "- Warning: LAN HTTP mode enabled (not secure on public networks)"
+fi
+echo
+if [[ "$ALLOWED_ORIGINS_STATUS" != "OK" ]]; then
+  echo "If origin mismatch appears, run:"
+  echo "openclaw config set gateway.controlUi.allowedOrigins '${ORIGINS_JSON}'"
 fi

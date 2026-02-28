@@ -9,8 +9,8 @@ echo "[$(date -Is)] clawos-bootstrap start"
 mkdir -p /var/lib/clawos /etc/default /etc/clawos
 
 # Branding + version
-hostnamectl set-hostname clawos || true
-echo "clawos" >/etc/hostname
+hostnamectl set-hostname klb-clawos || true
+echo "klb-clawos" >/etc/hostname
 echo "v0.1.14" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
