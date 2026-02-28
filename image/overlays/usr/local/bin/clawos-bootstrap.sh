@@ -11,11 +11,11 @@ mkdir -p /var/lib/clawos /etc/default /etc/clawos
 # Branding + version
 hostnamectl set-hostname klb-clawos || true
 echo "klb-clawos" >/etc/hostname
-echo "v0.1.14" >/etc/clawos/version
+echo "v0.1.16" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.14
+Version: v0.1.16
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
@@ -127,12 +127,14 @@ chmod 600 /etc/default/openclaw-gateway
 ALLOWED_ORIGINS_STATUS="OK"
 if [[ "$LAN_MODE" == "on" ]]; then
   ORIGINS_JSON="[\"http://${PRIMARY_IP}:${GATEWAY_PORT}\",\"http://127.0.0.1:${GATEWAY_PORT}\",\"http://localhost:${GATEWAY_PORT}\"]"
-  if openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1; then
-    :
+  if /usr/local/bin/clawos-fix-origin.sh >/dev/null 2>&1; then
+    ALLOWED_ORIGINS_STATUS="OK"
   else
     ALLOWED_ORIGINS_STATUS="needs update"
-    echo "[WARN] Could not auto-apply allowedOrigins. Run:"
-    echo "openclaw config set gateway.controlUi.allowedOrigins '$ORIGINS_JSON'"
+    echo "[ERROR] What happened: could not auto-apply Control UI allowed origins"
+    echo "[WHY] Likely cause: gateway config write failed during bootstrap"
+    echo "[FIX] Run: sudo /usr/local/bin/clawos-fix-origin.sh"
+    echo "[FIX] Manual fallback: openclaw config set gateway.controlUi.allowedOrigins '$ORIGINS_JSON'"
   fi
 
   if [[ "$LAN_HTTP_MODE" == "true" ]]; then
