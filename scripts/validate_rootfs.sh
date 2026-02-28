@@ -64,11 +64,27 @@ if ! grep -Rqs "^RuntimeDirectory=sshd$" /etc/systemd/system/ssh.service.d /lib/
 fi
 
 echo "[validate] checking no conflicting ssh.socket enablement"
+if systemctl list-unit-files | grep -q "^ssh\\.socket"; then
+  socket_state="$(systemctl is-enabled ssh.socket || true)"
+  case "$socket_state" in
+    masked|disabled|static) ;;
+    *)
+      echo "ssh.socket must not be enabled (state=$socket_state)" >&2
+      exit 1
+      ;;
+  esac
+fi
 if [[ -L /etc/systemd/system/ssh.socket ]]; then
   socket_target="$(readlink /etc/systemd/system/ssh.socket)"
   [[ "$socket_target" == "/dev/null" ]]
 elif [[ -e /etc/systemd/system/sockets.target.wants/ssh.socket ]]; then
   echo "ssh.socket is enabled via sockets.target.wants" >&2
+  exit 1
+fi
+
+echo "[validate] checking no dropbear conflict"
+if dpkg -s dropbear >/dev/null 2>&1; then
+  echo "dropbear must not be installed" >&2
   exit 1
 fi
 
