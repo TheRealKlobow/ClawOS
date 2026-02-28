@@ -34,8 +34,9 @@ fi
 
 OPENCLAW_REPO_URL="${OPENCLAW_REPO_URL:-https://github.com/openclaw/openclaw.git}"
 : "${OPENCLAW_REF:?ERROR: OPENCLAW_REF must be set (tag or commit)}"
+: "${PNPM_VERSION:=9.15.4}"
 
-"${CHROOT_PREFIX[@]}" /usr/bin/env OPENCLAW_REPO_URL="$OPENCLAW_REPO_URL" OPENCLAW_REF="$OPENCLAW_REF" bash -lc '
+"${CHROOT_PREFIX[@]}" /usr/bin/env OPENCLAW_REPO_URL="$OPENCLAW_REPO_URL" OPENCLAW_REF="$OPENCLAW_REF" PNPM_VERSION="$PNPM_VERSION" bash -lc '
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -52,7 +53,7 @@ apt-get install -y --no-install-recommends git curl ca-certificates python3 make
 command -v node >/dev/null 2>&1 || { echo "ERROR: node not present; run provision-runtime first" >&2; exit 1; }
 command -v corepack >/dev/null 2>&1 || { echo "ERROR: corepack not present; run provision-runtime first" >&2; exit 1; }
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare "pnpm@${PNPM_VERSION}" --activate
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm not available" >&2; exit 1; }
 
 id claw >/dev/null 2>&1 || useradd -m -s /bin/bash claw

@@ -32,7 +32,7 @@ if file "$MNT_ROOT/bin/sh" | grep -qiE 'aarch64|arm64'; then
   CHROOT_PREFIX=(chroot "$MNT_ROOT" /usr/bin/qemu-aarch64-static)
 fi
 
-"${CHROOT_PREFIX[@]}" /usr/bin/env bash -lc '
+"${CHROOT_PREFIX[@]}" /usr/bin/env PNPM_VERSION="${PNPM_VERSION:-9.15.4}" bash -lc '
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -59,9 +59,11 @@ if ! dpkg --compare-versions "$NODE_ACTUAL" ge "22.12.0"; then
   exit 1
 fi
 
+# Refresh corepack keys/runtime, then activate pinned pnpm via corepack
+npm install -g corepack@latest
 command -v corepack >/dev/null 2>&1 || { echo "ERROR: corepack missing after Node install" >&2; exit 1; }
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare "pnpm@${PNPM_VERSION}" --activate
 command -v pnpm >/dev/null 2>&1 || { echo "ERROR: pnpm not available after corepack activation" >&2; exit 1; }
 
 mkdir -p /etc/default
