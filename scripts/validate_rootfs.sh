@@ -132,6 +132,9 @@ echo "[validate] checking openclaw CLI"
 [[ "$(command -v openclaw)" == "/usr/local/bin/openclaw" ]]
 /usr/local/bin/openclaw --help >/dev/null
 
+echo "[validate] checking Control UI assets"
+test -f /opt/openclaw/dist/control-ui/index.html
+
 echo "[validate] checking /etc/openclaw/openclaw.env"
 test -f /etc/openclaw/openclaw.env
 grep -Fx "OPENCLAW_GATEWAY_BIND=127.0.0.1" /etc/openclaw/openclaw.env

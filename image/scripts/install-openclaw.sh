@@ -79,6 +79,25 @@ else
   exit 1
 fi
 
+if [[ ! -f /opt/openclaw/dist/control-ui/index.html ]]; then
+  mkdir -p /opt/openclaw/dist/control-ui
+  cat >/opt/openclaw/dist/control-ui/index.html <<'EOF'
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Control UI assets missing</title></head>
+<body style="font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5;">
+<h1>Control UI assets are missing</h1>
+<p>This image/build is broken: <code>/opt/openclaw/dist/control-ui/index.html</code> was not produced.</p>
+<p>Fix (builder host):</p>
+<pre>cd /opt/openclaw
+pnpm install
+pnpm build
+test -f /opt/openclaw/dist/control-ui/index.html</pre>
+</body></html>
+EOF
+  echo "ERROR: missing /opt/openclaw/dist/control-ui/index.html after build" >&2
+  exit 1
+fi
+
 if [[ -f /opt/openclaw/openclaw.mjs ]]; then
   chmod +x /opt/openclaw/openclaw.mjs
   ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw

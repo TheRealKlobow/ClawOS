@@ -25,7 +25,7 @@ pass() {
 [[ -f "$ENV_EXAMPLE" ]] || fail "missing .env.example"
 [[ -f "$OPENCLAW_SERVICE" ]] || fail "missing openclaw.service overlay"
 
-EXPECTED_VERSION="v0.1.10"
+EXPECTED_VERSION="v0.1.13"
 ACTUAL_VERSION="$(tr -d '\r\n' < "$VERSION_FILE")"
 [[ "$ACTUAL_VERSION" == "$EXPECTED_VERSION" ]] || fail "version mismatch: expected $EXPECTED_VERSION got $ACTUAL_VERSION"
 pass "version match ($EXPECTED_VERSION)"

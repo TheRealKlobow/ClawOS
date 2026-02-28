@@ -51,6 +51,7 @@ PNPM_BIN="$(command -v pnpm || true)"
 [[ -d /opt/openclaw ]] || { echo "ERROR: /opt/openclaw missing" >&2; exit 1; }
 [[ -f /opt/openclaw/openclaw.mjs ]] || { echo "ERROR: /opt/openclaw/openclaw.mjs missing" >&2; exit 1; }
 [[ -f /opt/openclaw/dist/entry.mjs || -f /opt/openclaw/dist/entry.js ]] || { echo "ERROR: OpenClaw dist entry missing" >&2; exit 1; }
+[[ -f /opt/openclaw/dist/control-ui/index.html ]] || { echo "ERROR: OpenClaw Control UI index missing (/opt/openclaw/dist/control-ui/index.html)" >&2; exit 1; }
 [[ -f /etc/openclaw/version ]] || { echo "ERROR: /etc/openclaw/version missing" >&2; exit 1; }
 [[ -f /etc/clawos/openclaw-ref ]] || { echo "ERROR: /etc/clawos/openclaw-ref missing" >&2; exit 1; }
 owner="$(stat -c %U:%G /opt/openclaw)"
