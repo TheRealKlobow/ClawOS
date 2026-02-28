@@ -76,6 +76,22 @@ if [[ "$active_state" != "active" ]]; then
   state=2
 fi
 
+bind_lines="$(ss -ltnp 2>/dev/null | grep ':18789' || true)"
+if [[ -n "$bind_lines" ]]; then
+  echo "gateway listen sockets:"
+  echo "$bind_lines"
+  if echo "$bind_lines" | grep -q '0.0.0.0:18789'; then
+    echo "[WARN] gateway is LAN-exposed (0.0.0.0:18789)"
+    [[ $state -lt 1 ]] && state=1
+  fi
+  if echo "$bind_lines" | grep -q '127.0.0.1:18789'; then
+    echo "[OK] gateway bound to localhost"
+  fi
+else
+  echo "[WARN] no listener found on :18789"
+  [[ $state -lt 1 ]] && state=1
+fi
+
 if [[ $state -ne 0 ]]; then
   echo "--- Last 80 openclaw logs ---"
   journalctl -u openclaw --no-pager -n 80 || true
