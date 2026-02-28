@@ -83,8 +83,13 @@ chown -R "$TARGET_USER":"$TARGET_USER" "$USER_CFG_DIR"
 chmod 700 "$USER_CFG_DIR"
 chmod 600 "$USER_CFG_FILE"
 
-hostnamectl set-hostname "$DEVICE_NAME" || true
-echo "$DEVICE_NAME" >/etc/hostname
+if ! hostnamectl set-hostname "$DEVICE_NAME"; then
+  echo "[WARN] Could not set static hostname via hostnamectl. Trying transient hostname..."
+  hostnamectl --transient set-hostname "$DEVICE_NAME" >/dev/null 2>&1 || true
+fi
+if ! echo "$DEVICE_NAME" >/etc/hostname 2>/dev/null; then
+  echo "[WARN] Could not write /etc/hostname (read-only or restricted). Continuing with current hostname."
+fi
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
 ALLOWED_ORIGINS_STATUS="needs update"
