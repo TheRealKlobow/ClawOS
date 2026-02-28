@@ -9,7 +9,7 @@ STAGE_DIR="$OUT_DIR/runtime-stage"
 PAYLOAD_DIR="$STAGE_DIR/payload"
 
 rm -rf "$STAGE_DIR"
-mkdir -p "$PAYLOAD_DIR/etc/systemd/system" "$PAYLOAD_DIR/usr/local/bin" "$PAYLOAD_DIR/etc/clawos" "$PAYLOAD_DIR/etc/default" "$PAYLOAD_DIR/opt/clawos"
+mkdir -p "$PAYLOAD_DIR/etc/systemd/system" "$PAYLOAD_DIR/usr/local/bin" "$PAYLOAD_DIR/etc/clawos" "$PAYLOAD_DIR/etc/default" "$PAYLOAD_DIR/opt/clawos" "$PAYLOAD_DIR/opt/openclaw"
 
 # ClawOS-managed runtime files only
 cp -a "$ROOT_DIR/image/overlays/usr/local/bin/clawos-bootstrap.sh" "$PAYLOAD_DIR/usr/local/bin/"
@@ -18,6 +18,7 @@ cp -a "$ROOT_DIR/image/overlays/usr/local/bin/openclaw-healthcheck.sh" "$PAYLOAD
 cp -a "$ROOT_DIR/image/overlays/usr/local/bin/clawos-update" "$PAYLOAD_DIR/usr/local/bin/"
 
 cp -a "$ROOT_DIR/image/overlays/etc/systemd/system/openclaw-gateway.service" "$PAYLOAD_DIR/etc/systemd/system/"
+cp -a "$ROOT_DIR/image/overlays/etc/systemd/system/openclaw.service" "$PAYLOAD_DIR/etc/systemd/system/"
 for f in "$ROOT_DIR"/image/overlays/etc/systemd/system/clawos-*.service "$ROOT_DIR"/image/overlays/etc/systemd/system/clawos-*.timer; do
   [[ -f "$f" ]] && cp -a "$f" "$PAYLOAD_DIR/etc/systemd/system/"
 done
@@ -27,6 +28,9 @@ cp -a "$ROOT_DIR/image/overlays/etc/clawos/." "$PAYLOAD_DIR/etc/clawos/"
 
 if [[ -d "$ROOT_DIR/image/overlays/opt/clawos" ]]; then
   cp -a "$ROOT_DIR/image/overlays/opt/clawos/." "$PAYLOAD_DIR/opt/clawos/"
+fi
+if [[ -d "$ROOT_DIR/image/overlays/opt/openclaw" ]]; then
+  cp -a "$ROOT_DIR/image/overlays/opt/openclaw/." "$PAYLOAD_DIR/opt/openclaw/"
 fi
 
 cat >"$STAGE_DIR/apply.sh" <<'EOF'
@@ -42,6 +46,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PAYLOAD_DIR="$SCRIPT_DIR/payload"
 [[ -d "$PAYLOAD_DIR" ]] || { echo "missing payload directory"; exit 1; }
 
+systemctl stop openclaw.service || true
 systemctl stop openclaw-gateway.service || true
 
 cp -a "$PAYLOAD_DIR/." /
@@ -51,7 +56,12 @@ chmod 0755 /usr/local/bin/openclaw-healthcheck.sh || true
 chmod 0755 /usr/local/bin/clawos-update || true
 
 systemctl daemon-reload
-systemctl start openclaw-gateway.service
+if systemctl list-unit-files | grep -q '^openclaw.service'; then
+  systemctl enable openclaw.service || true
+  systemctl start openclaw.service
+else
+  systemctl start openclaw-gateway.service
+fi
 
 echo "[$(date -Is)] runtime apply complete"
 EOF

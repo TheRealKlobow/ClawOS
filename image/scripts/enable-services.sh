@@ -14,10 +14,11 @@ mkdir -p "$WANTS_DIR" "$TIMERS_WANTS_DIR"
 
 ln -sfn /etc/systemd/system/clawos-bootstrap.service "$WANTS_DIR/clawos-bootstrap.service"
 ln -sfn /etc/systemd/system/openclaw-gateway.service "$WANTS_DIR/openclaw-gateway.service"
+ln -sfn /etc/systemd/system/openclaw.service "$WANTS_DIR/openclaw.service"
 ln -sfn /etc/systemd/system/clawos-update.timer "$TIMERS_WANTS_DIR/clawos-update.timer"
 
 # verify links and targets
-for unit in clawos-bootstrap.service openclaw-gateway.service; do
+for unit in clawos-bootstrap.service openclaw-gateway.service openclaw.service; do
   [[ -L "$WANTS_DIR/$unit" ]] || { echo "ERROR: missing symlink for $unit" >&2; exit 1; }
   target="$(readlink "$WANTS_DIR/$unit")"
   [[ "$target" == "/etc/systemd/system/$unit" ]] || {

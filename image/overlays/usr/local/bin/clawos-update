@@ -108,6 +108,10 @@ fi
 "$TARGET_DIR/apply.sh"
 
 echo "$LATEST_TAG" >/etc/clawos/version
-systemctl restart openclaw-gateway.service
+if systemctl list-unit-files | grep -q '^openclaw.service'; then
+  systemctl restart openclaw.service
+else
+  systemctl restart openclaw-gateway.service
+fi
 
 echo "[$(date -Is)] updated successfully to $LATEST_TAG"

@@ -56,24 +56,6 @@ if ! dpkg --compare-versions "$NODE_ACTUAL" ge "22.12.0"; then
   exit 1
 fi
 
-npm config set prefix /usr/local
-npm install -g openclaw@latest
-
-OPENCLAW_PATH="$(command -v openclaw || true)"
-if [[ -z "$OPENCLAW_PATH" ]]; then
-  NPM_PREFIX="$(npm config get prefix)"
-  if [[ -x "$NPM_PREFIX/bin/openclaw" ]]; then
-    ln -sf "$NPM_PREFIX/bin/openclaw" /usr/local/bin/openclaw
-    OPENCLAW_PATH="/usr/local/bin/openclaw"
-  fi
-fi
-if [[ -z "$OPENCLAW_PATH" || ! -x "$OPENCLAW_PATH" ]]; then
-  echo "ERROR: openclaw not found in chroot after install" >&2
-  npm root -g >&2 || true
-  ls -la "$(npm config get prefix)/bin" >&2 || true
-  exit 1
-fi
-
 mkdir -p /etc/default
 cat >/etc/default/clawos-path <<EOF
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -82,10 +64,7 @@ EOF
 {
   echo "node: $(command -v node) $(node -v)"
   echo "npm: $(command -v npm) $(npm -v)"
-  echo "openclaw: $(command -v openclaw)"
-  echo "npm-prefix: $(npm config get prefix)"
-  echo "npm-root-g: $(npm root -g)"
-} >/var/log/clawos-openclaw-path.log
+} >/var/log/clawos-node-path.log
 
 apt-get clean
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/node-v*.tar.xz

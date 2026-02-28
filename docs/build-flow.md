@@ -25,19 +25,18 @@ set -a; source .env; set +a; bash image/build.sh
    - mount rootfs rw
    - copy overlays with `cp -a`
 5. `provision-runtime.sh`
-   - chroot install runtime deps (`curl`, `ca-certificates`, `gnupg`, `git`)
-   - install Node.js (NodeSource 22 preferred; distro fallback)
-   - install OpenClaw CLI globally (`npm install -g openclaw@latest`)
-   - verify `openclaw` resolves inside chroot
-5. `enable-services.sh`
-   - offline systemd symlink enable + verification
-6. `validate-rootfs-runtime.sh`
-   - chroot checks for `node`/`nodejs`, `npm`, `openclaw`
-   - `openclaw --version` must succeed
-   - unit guard checks (`ExecCondition`, `EnvironmentFile`)
-7. `validate-image.sh`
+   - install runtime dependencies in chroot
+   - install Node.js runtime (>=22.12.0)
+6. `install-openclaw.sh`
+   - clone OpenClaw into `/opt/openclaw`
+   - install production dependencies
+   - run optional build if present
+7. `enable-services.sh`
+   - offline systemd symlink enable + verification (`openclaw.service`, bootstrap, timers)
+8. `validate-rootfs-runtime.sh`
+   - chroot checks for node/npm and OpenClaw runtime presence
+   - validates `openclaw.service` command/working directory/user
+9. `validate-image.sh`
    - artifact checks
-6. `image/build.sh`
-   - produces `out/clawos-pi.img.xz`
 
 Cleanup runs via trap and always attempts unmount + detach.

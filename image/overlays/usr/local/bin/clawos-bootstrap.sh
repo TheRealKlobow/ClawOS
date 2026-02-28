@@ -11,11 +11,11 @@ mkdir -p /var/lib/clawos /etc/default /etc/clawos
 # Branding + version
 hostnamectl set-hostname clawos || true
 echo "clawos" >/etc/hostname
-echo "v1.7.4" >/etc/clawos/version
+echo "v0.1.6" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 KLB ClawOS - Built by KLB Groups.com
-Version: v1.7.4
+Version: v0.1.6
 EOF
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
@@ -78,10 +78,10 @@ netplan generate || true
 systemctl enable ssh || true
 systemctl restart ssh || true
 
-# Enable and start gateway
+# Enable and start OpenClaw service
 systemctl daemon-reload
-systemctl enable openclaw-gateway.service
-systemctl restart openclaw-gateway.service
+systemctl enable openclaw.service
+systemctl restart openclaw.service
 
 touch /var/lib/clawos/bootstrap.done
 echo "[$(date -Is)] clawos-bootstrap complete"

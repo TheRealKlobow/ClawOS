@@ -43,26 +43,19 @@ NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || { echo "ERROR: npm not found" >&2; exit 1; }
 
 OPENCLAW_BIN="$(command -v openclaw || true)"
-[[ -n "$OPENCLAW_BIN" ]] || { echo "ERROR: openclaw not found" >&2; exit 1; }
-[[ -x "$OPENCLAW_BIN" ]] || { echo "ERROR: openclaw not executable" >&2; exit 1; }
-
-openclaw --version >/dev/null
+if [[ -n "$OPENCLAW_BIN" ]]; then
+  [[ -x "$OPENCLAW_BIN" ]] || { echo "ERROR: openclaw exists but is not executable" >&2; exit 1; }
+else
+  [[ -f /opt/openclaw/scripts/run-node.mjs ]] || { echo "ERROR: neither openclaw binary nor /opt/openclaw/scripts/run-node.mjs found" >&2; exit 1; }
+fi
 '
 
-UNIT_PATH="$MNT_ROOT/etc/systemd/system/openclaw-gateway.service"
+UNIT_PATH="$MNT_ROOT/etc/systemd/system/openclaw.service"
 [[ -f "$UNIT_PATH" ]] || { echo "ERROR: missing unit file: $UNIT_PATH" >&2; exit 1; }
 
-grep -q '^ExecCondition=' "$UNIT_PATH" || { echo "ERROR: ExecCondition missing in openclaw-gateway.service" >&2; exit 1; }
-grep -q '^EnvironmentFile=-/etc/default/clawos-path$' "$UNIT_PATH" || { echo "ERROR: EnvironmentFile=-/etc/default/clawos-path missing" >&2; exit 1; }
+grep -q '^WorkingDirectory=/opt/openclaw$' "$UNIT_PATH" || { echo "ERROR: WorkingDirectory missing/incorrect in openclaw.service" >&2; exit 1; }
+grep -q '^ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway$' "$UNIT_PATH" || { echo "ERROR: ExecStart missing/incorrect in openclaw.service" >&2; exit 1; }
 
-awk '
-  /^Environment=.*PATH=/ { count++ }
-  END {
-    if (count > 1) {
-      print "ERROR: duplicate PATH Environment definitions in openclaw-gateway.service" > "/dev/stderr"
-      exit 1
-    }
-  }
-' "$UNIT_PATH"
+grep -q '^User=claw$' "$UNIT_PATH" || { echo "ERROR: openclaw.service must run as user claw" >&2; exit 1; }
 
 echo "Rootfs runtime validation passed"

@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenClaw Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=claw
+Group=claw
+WorkingDirectory=/opt/openclaw
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/node /opt/openclaw/scripts/run-node.mjs gateway
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
