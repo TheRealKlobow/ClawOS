@@ -74,6 +74,34 @@ To enable LAN access explicitly:
 - If a release is broken, bump to the next patch version and tag again.
 - CI must publish assets for that new tag; do not reuse old tags.
 
+## Release validity guarantees
+
+Every release tag must pass rootfs validation in CI before any GitHub Release is created/uploaded.
+
+Exact CI checks (inside mounted/chrooted image rootfs):
+
+- `dpkg -s openssh-server` succeeds
+- `systemctl is-enabled ssh` returns `enabled`
+- `dpkg -s sudo` succeeds
+- `claw` user exists and belongs to `sudo` (group + `su - claw -c 'id -nG'`)
+- `node -v` major version is `>= 22`
+- `command -v openclaw` resolves to `/usr/local/bin/openclaw`
+- `/usr/local/bin/openclaw --help` exits 0
+- `/etc/openclaw/openclaw.env` exists and contains exact lines:
+  - `OPENCLAW_GATEWAY_BIND=127.0.0.1`
+  - `OPENCLAW_GATEWAY_PORT=18789`
+- `systemctl cat openclaw.service` succeeds
+- if `openclaw.service` is present in unit files, `systemctl is-enabled openclaw.service` returns `enabled`
+
+Release assets are mandatory and checksum-verified in CI:
+
+- `clawos-pi.img.xz`
+- `clawos-runtime-<version>.tar.gz`
+- `SHA256SUMS.txt`
+- `RELEASE_NOTES.md`
+
+If any validation or checksum check fails, CI fails and no release is published.
+
 ## Updates
 
 - Manual updater: `sudo clawos-update`
