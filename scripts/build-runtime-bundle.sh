@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$ROOT_DIR/out"
-VERSION="$(tr -d '\r\n' < "$ROOT_DIR/image/overlays/etc/clawos/version")"
+VERSION="${RELEASE_VERSION:-$(tr -d '\r\n' < "$ROOT_DIR/image/overlays/etc/clawos/version")}"
 RUNTIME_NAME="clawos-runtime-${VERSION}.tar.gz"
 STAGE_DIR="$OUT_DIR/runtime-stage"
 PAYLOAD_DIR="$STAGE_DIR/payload"
