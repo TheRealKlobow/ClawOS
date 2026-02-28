@@ -75,6 +75,9 @@ cat > "$USER_CFG_FILE" <<EOF
     "auth": {
       "mode": "token",
       "token": "${ESC_TOKEN}"
+    },
+    "remote": {
+      "token": "${ESC_TOKEN}"
     }
   }
 }
@@ -90,10 +93,16 @@ fi
 if ! echo "$DEVICE_NAME" >/etc/hostname 2>/dev/null; then
   echo "[WARN] Could not write /etc/hostname (read-only or restricted). Continuing with current hostname."
 fi
+if ! grep -qE "^127\.0\.1\.1\s+${DEVICE_NAME}(\s|$)" /etc/hosts 2>/dev/null; then
+  sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
+  echo "127.0.1.1 ${DEVICE_NAME}" >>/etc/hosts 2>/dev/null || true
+fi
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
 ALLOWED_ORIGINS_STATUS="needs update"
 ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
+openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
 if openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1; then
   ALLOWED_ORIGINS_STATUS="OK"
 fi

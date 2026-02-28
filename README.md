@@ -90,7 +90,15 @@ Guided setup (recommended):
 clawos setup
 ```
 
-(Equivalent low-level command: `sudo /usr/local/bin/clawos-setup-gateway.sh`)
+Maintenance commands:
+
+```bash
+clawos status
+clawos doctor
+sudo clawos update
+```
+
+(Equivalent low-level command for setup: `sudo /usr/local/bin/clawos-setup-gateway.sh`)
 
 The guided flow asks for:
 - device name (default `klb-clawos`)
