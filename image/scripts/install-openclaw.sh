@@ -79,22 +79,26 @@ else
   exit 1
 fi
 
-if [[ ! -f /opt/openclaw/dist/control-ui/index.html ]]; then
+if [[ -f /opt/openclaw/dist/control-ui/index.html ]]; then
+  :
+elif compgen -G '/opt/openclaw/dist/control-ui-assets-*.js' >/dev/null; then
+  :
+else
   mkdir -p /opt/openclaw/dist/control-ui
   cat >/opt/openclaw/dist/control-ui/index.html <<'EOF'
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Control UI assets missing</title></head>
 <body style="font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5;">
 <h1>Control UI assets are missing</h1>
-<p>This image/build is broken: <code>/opt/openclaw/dist/control-ui/index.html</code> was not produced.</p>
+<p>This image/build is broken: no Control UI artifact was produced in <code>/opt/openclaw/dist</code>.</p>
 <p>Fix (builder host):</p>
 <pre>cd /opt/openclaw
 pnpm install
 pnpm build
-test -f /opt/openclaw/dist/control-ui/index.html</pre>
+ls -1 /opt/openclaw/dist/control-ui/index.html /opt/openclaw/dist/control-ui-assets-*.js</pre>
 </body></html>
 EOF
-  echo "ERROR: missing /opt/openclaw/dist/control-ui/index.html after build" >&2
+  echo "ERROR: missing Control UI artifacts after build (/opt/openclaw/dist/control-ui/index.html or /opt/openclaw/dist/control-ui-assets-*.js)" >&2
   exit 1
 fi
 
