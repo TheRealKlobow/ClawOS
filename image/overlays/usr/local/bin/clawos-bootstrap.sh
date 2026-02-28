@@ -74,9 +74,8 @@ else
 fi
 netplan generate || true
 
-# Ensure SSH is active for headless management
+# Ensure SSH stays enabled for headless management
 systemctl enable ssh || true
-systemctl restart ssh || true
 
 # Enable and start OpenClaw service
 systemctl daemon-reload

@@ -82,6 +82,8 @@ Exact CI checks (inside mounted/chrooted image rootfs):
 
 - `dpkg -s openssh-server` succeeds
 - `systemctl is-enabled ssh` returns `enabled`
+- SSH runtime dir is systemd-managed (`RuntimeDirectory=sshd`) or `/etc/tmpfiles.d/sshd.conf` exists
+- if `ssh.socket` exists, it is not enabled (`masked`/`disabled`/`static` only)
 - `dpkg -s sudo` succeeds
 - `claw` user exists and belongs to `sudo` (group + `su - claw -c 'id -nG'`)
 - `node -v` major version is `>= 22`

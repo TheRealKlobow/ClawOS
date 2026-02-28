@@ -10,4 +10,3 @@ write_files: []
 
 runcmd:
   - [ systemctl, enable, ssh ]
-  - [ systemctl, start, ssh ]

@@ -16,7 +16,12 @@ mkdir -p "$WANTS_DIR" "$TIMERS_WANTS_DIR" "$NETONLINE_WANTS_DIR"
 ln -sfn /etc/systemd/system/clawos-bootstrap.service "$WANTS_DIR/clawos-bootstrap.service"
 ln -sfn /etc/systemd/system/openclaw-gateway.service "$WANTS_DIR/openclaw-gateway.service"
 ln -sfn /etc/systemd/system/openclaw.service "$WANTS_DIR/openclaw.service"
+ln -sfn /etc/systemd/system/ssh-hostkeys.service "$WANTS_DIR/ssh-hostkeys.service"
 ln -sfn /etc/systemd/system/clawos-update.timer "$TIMERS_WANTS_DIR/clawos-update.timer"
+
+# avoid socket-activated duplicate ssh startup
+rm -f "$MNT_ROOT/etc/systemd/system/sockets.target.wants/ssh.socket"
+ln -sfn /dev/null "$MNT_ROOT/etc/systemd/system/ssh.socket"
 
 if [[ -f "$MNT_ROOT/lib/systemd/system/ssh.service" ]]; then
   ln -sfn /lib/systemd/system/ssh.service "$WANTS_DIR/ssh.service"
@@ -34,7 +39,7 @@ elif [[ -f "$MNT_ROOT/usr/lib/systemd/system/systemd-networkd-wait-online.servic
 fi
 
 # verify links and targets
-for unit in clawos-bootstrap.service openclaw-gateway.service openclaw.service; do
+for unit in clawos-bootstrap.service openclaw-gateway.service openclaw.service ssh-hostkeys.service; do
   [[ -L "$WANTS_DIR/$unit" ]] || { echo "ERROR: missing symlink for $unit" >&2; exit 1; }
   target="$(readlink "$WANTS_DIR/$unit")"
   [[ "$target" == "/etc/systemd/system/$unit" ]] || {
@@ -72,5 +77,9 @@ if [[ "$ssh_target" != "/lib/systemd/system/ssh.service" && "$ssh_target" != "/u
   echo "ERROR: wrong symlink target for ssh.service -> $ssh_target" >&2
   exit 1
 fi
+
+[[ -L "$MNT_ROOT/etc/systemd/system/ssh.socket" ]] || { echo "ERROR: ssh.socket is not masked" >&2; exit 1; }
+ssh_socket_target="$(readlink "$MNT_ROOT/etc/systemd/system/ssh.socket")"
+[[ "$ssh_socket_target" == "/dev/null" ]] || { echo "ERROR: ssh.socket mask target invalid: $ssh_socket_target" >&2; exit 1; }
 
 echo "Offline service links verified"

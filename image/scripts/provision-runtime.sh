@@ -96,6 +96,9 @@ if [[ ! -f /etc/ssh/sshd_config ]]; then
   exit 1
 fi
 
+# Do not bake host keys into the image; regenerate on first boot
+rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
+
 {
   echo "node: $(command -v node) $(node -v)"
   echo "npm: $(command -v npm) $(npm -v)"

@@ -58,6 +58,17 @@ dpkg -s openssh-server >/dev/null
 echo "[validate] checking ssh service enabled"
 [[ "$(systemctl is-enabled ssh)" == "enabled" ]]
 
+echo "[validate] checking ssh runtime directory configuration"
+if ! systemctl cat ssh.service | grep -q "RuntimeDirectory=sshd"; then
+  test -f /etc/tmpfiles.d/sshd.conf
+fi
+
+echo "[validate] checking no conflicting ssh.socket enablement"
+if systemctl list-unit-files ssh.socket --no-legend --no-pager 2>/dev/null | grep -q "ssh\.socket"; then
+  socket_state="$(systemctl is-enabled ssh.socket || true)"
+  [[ "$socket_state" == "masked" || "$socket_state" == "disabled" || "$socket_state" == "static" ]]
+fi
+
 echo "[validate] checking claw user and sudo package/group"
 dpkg -s sudo >/dev/null
 getent passwd claw >/dev/null
