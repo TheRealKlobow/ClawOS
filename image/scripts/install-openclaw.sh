@@ -71,6 +71,7 @@ git fetch --all --tags --prune
 git checkout "$OPENCLAW_REF"
 pnpm install --frozen-lockfile || pnpm install
 pnpm build
+pnpm ui:build
 
 if [[ -f /opt/openclaw/dist/entry.mjs || -f /opt/openclaw/dist/entry.js ]]; then
   :
@@ -80,8 +81,6 @@ else
 fi
 
 if [[ -f /opt/openclaw/dist/control-ui/index.html ]]; then
-  :
-elif compgen -G '/opt/openclaw/dist/control-ui-assets-*.js' >/dev/null; then
   :
 else
   mkdir -p /opt/openclaw/dist/control-ui
@@ -98,7 +97,7 @@ pnpm build
 ls -1 /opt/openclaw/dist/control-ui/index.html /opt/openclaw/dist/control-ui-assets-*.js</pre>
 </body></html>
 EOF
-  echo "ERROR: missing Control UI artifacts after build (/opt/openclaw/dist/control-ui/index.html or /opt/openclaw/dist/control-ui-assets-*.js)" >&2
+  echo "ERROR: missing Control UI runtime assets after build (/opt/openclaw/dist/control-ui/index.html)" >&2
   exit 1
 fi
 
