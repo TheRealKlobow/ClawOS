@@ -15,11 +15,11 @@ if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.20-beta9" >/etc/clawos/version
+echo "v0.1.20-beta10" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.20-beta9
+Version: v0.1.20-beta10
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
