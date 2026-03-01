@@ -2,198 +2,315 @@
 
 **ClawOS • Made by KLB Groups**
 
-Public, installable Raspberry Pi image for running OpenClaw OS headless on LAN.
+ClawOS is a Raspberry Pi-focused, open-source runtime image and update stack for running OpenClaw reliably on LAN/home infrastructure.
 
-- Repo: https://github.com/TheRealKlobow/ClawOS
-- Site: http://clawos.klbgroups.com (coming soon)
+- Repository: https://github.com/TheRealKlobow/ClawOS
+- Stable release: `v0.1.20-stable`
+- License: MIT (see `LICENSE`)
 
-## QUICK START
-
-1. Download Raspberry Pi OS Lite image to `out/base/raspios-lite.img`.
-2. Copy env template: `cp .env.example .env` (do not put secrets in git).
-3. Build (Linux root shell): `set -a; source .env; set +a; bash image/build.sh`.
-4. Flash `out/clawos-pi.img.xz` to SD/USB.
-5. Boot Pi on Ethernet (DHCP on `eth0`), then SSH in.
-
-## v0.1.16 defaults
-
-- Headless by default
-- SSH enabled
-- OpenClaw preinstalled at `/opt/openclaw` (no manual post-flash install)
-- `openclaw.service` enabled in image and expected to auto-start after first boot
-- `clawos-about` provides image/OpenClaw/Node/service version snapshot
-- LAN-only design (Ethernet)
-- DHCP on `eth0` by default
-- Optional static IP via config/env (`NETWORK_STATIC_ENABLED=true`)
-- No Wi-Fi auto-join
-- No interactive prompts on boot
-
-## First-boot UX
-
-Choose one:
-
-- **Boot partition drop-in (recommended)**: provide a config file artifact during image customization.
-- **Post-boot env edit**: edit `/etc/default/openclaw-gateway` over SSH.
-
-Both flows keep secrets out of git and out of shipped defaults.
-
-On first boot, ClawOS now writes a connection summary to `/etc/motd` including bind, port, Control UI URL, WebSocket URL, LAN mode, and allowed-origins status.
-
-## SECURITY
-
-Default posture:
-
-- Gateway bind default is loopback.
-- No secrets committed.
-- No secrets baked into release artifacts.
-
-Open ports (base expectation):
-
-- `22/tcp` (SSH)
-- Gateway defaults to localhost-only bind (`127.0.0.1:18789`)
-- LAN bind (`0.0.0.0:18789`) only if explicitly enabled by user
-
-Hardening recommendations:
-
-- Keep gateway on loopback unless explicitly needed
-- Use token auth with long random token
-- Disable SSH password auth (keys only)
-- Restrict inbound access at firewall/router
-
-To enable LAN access explicitly:
-
-1. Edit `/etc/default/openclaw-gateway`
-2. Set `OPENCLAW_GATEWAY_BIND=lan` (or `0.0.0.0`)
-3. Set your preferred `OPENCLAW_GATEWAY_PORT`
-4. Optional for explicit HTTP LAN mode: `OPENCLAW_LAN_HTTP_MODE=true` (not secure on public networks)
-5. `sudo systemctl restart openclaw-gateway`
-
-Command-only example:
+## Quick Start (fast install)
 
 ```bash
-sudo tee /etc/default/openclaw-gateway >/dev/null <<'EOF'
-OPENCLAW_GATEWAY_BIND=lan
-OPENCLAW_GATEWAY_PORT=18790
-OPENCLAW_GATEWAY_TOKEN=<token>
-OPENCLAW_LAN_HTTP_MODE=true
-EOF
+ssh claw@<PI_IP>
 
-sudo systemctl daemon-reload
-sudo systemctl enable openclaw-gateway.service
-sudo systemctl restart openclaw-gateway.service
-openclaw gateway status
+set -euo pipefail
+TMP="$(mktemp -d)"
+cd "$TMP"
+
+curl -fL --retry 3 -o clawos-runtime-v0.1.20-stable.tar.gz \
+  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/clawos-runtime-v0.1.20-stable.tar.gz
+
+curl -fL --retry 3 -o SHA256SUMS-v0.1.20-stable.txt \
+  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/SHA256SUMS-v0.1.20-stable.txt
+
+sha256sum -c SHA256SUMS-v0.1.20-stable.txt
+tar -xzf clawos-runtime-v0.1.20-stable.tar.gz
+sudo bash ./apply.sh
+
+echo "v0.1.20-stable" | sudo tee /etc/clawos/version >/dev/null
+clawos setup
 ```
 
-Guided setup (recommended):
+Expected completion line:
+
+```text
+SETUP_RESULT: PASS (mode=... port=... token=...)
+```
+
+> Full architecture, security rationale, and operations guidance continue below and remain the authoritative documentation.
+
+---
+
+## What ClawOS is
+
+ClawOS is a practical distribution layer around OpenClaw for Raspberry Pi:
+
+- preconfigured runtime conventions
+- guided gateway setup (`clawos setup`)
+- service lifecycle management
+- repeatable runtime updates
+- operational helpers (`clawos status`, `clawos doctor`, `clawos update`)
+
+It is designed for people who want a working local AI operator node without manually stitching together every service and config file.
+
+---
+
+## What problem it solves
+
+Raw infrastructure setup is where many projects fail:
+
+- drift between config files and service runtime
+- token/auth mismatch between user and root contexts
+- unclear startup failures
+- hard-to-repeat updates
+
+ClawOS focuses on solving that operational layer so setup is deterministic and recoverable.
+
+---
+
+## Why this project exists (and why it matters)
+
+ClawOS is a proof of concept in **AI-assisted system engineering**:
+
+- built in roughly **24 hours** of focused iteration
+- created by someone who had **never previously built a full operating system distribution flow**
+- developed through structured prompt-driven collaboration with OpenClaw + ChatGPT
+
+This is not “AI did everything.”
+This is **human direction + AI execution + human validation**.
+
+That model is the point.
+
+---
+
+## Open source commitment
+
+ClawOS is fully open source in this repository.
+
+Principles:
+
+- transparent implementation
+- auditable scripts and service units
+- reproducible release artifacts
+- no secret logic hidden outside the repo
+
+---
+
+## Philosophy and vision
+
+### Philosophy
+
+1. **Secure by default**
+   - loopback-first where possible
+   - explicit opt-in for insecure LAN HTTP convenience modes
+
+2. **Deterministic operations**
+   - known setup flow
+   - clear fail reasons
+   - minimal ambiguity
+
+3. **Operational honesty**
+   - explicit diagnostics over “magic”
+   - no fake success messages
+
+4. **Human-in-control AI**
+   - agent power is useful only when deployment controls are explicit
+
+### Vision
+
+A reliable, self-hosted, AI-native operations substrate where normal people can deploy advanced automation safely, repeatedly, and fast.
+
+---
+
+## Installation guide (step-by-step)
+
+> This is the production path for a fresh Raspberry Pi.
+
+### 0) Requirements
+
+- Raspberry Pi (Ethernet recommended)
+- flashed ClawOS-compatible base image
+- SSH access to the Pi
+
+### 1) SSH into the Pi
+
+```bash
+ssh claw@<PI_IP>
+```
+
+### 2) Install stable runtime
+
+```bash
+set -euo pipefail
+TMP="$(mktemp -d)"
+cd "$TMP"
+
+curl -fL --retry 3 -o clawos-runtime-v0.1.20-stable.tar.gz \
+  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/clawos-runtime-v0.1.20-stable.tar.gz
+
+curl -fL --retry 3 -o SHA256SUMS-v0.1.20-stable.txt \
+  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/SHA256SUMS-v0.1.20-stable.txt
+
+sha256sum -c SHA256SUMS-v0.1.20-stable.txt
+tar -xzf clawos-runtime-v0.1.20-stable.tar.gz
+sudo bash ./apply.sh
+
+echo "v0.1.20-stable" | sudo tee /etc/clawos/version >/dev/null
+cat /etc/clawos/version
+```
+
+### 3) Run guided setup
 
 ```bash
 clawos setup
 ```
 
-Maintenance commands:
+Expected completion line:
+
+```text
+SETUP_RESULT: PASS (mode=... port=... token=...)
+```
+
+### 4) Verify service state
 
 ```bash
+sudo systemctl is-active openclaw-gateway.service
+sudo systemctl status openclaw-gateway.service --no-pager | sed -n '1,25p'
+```
+
+Expected: `active` and `Active: active (running)`
+
+---
+
+## Manual approval: what it is and why it exists
+
+ClawOS is designed for environments where automation may trigger high-impact actions.
+Manual approval exists so humans remain accountable at critical boundaries.
+
+Typical examples:
+
+- network exposure changes
+- sensitive credential changes
+- destructive maintenance tasks
+
+This is intentional friction for safety, not a UX accident.
+
+---
+
+## Dashboard / UI connection notes
+
+If dashboard is reachable but shows device-identity/auth restrictions over plain HTTP LAN, this is expected secure-default behavior.
+
+For local development convenience (less secure), you can explicitly enable insecure UI auth:
+
+```bash
+sudo openclaw config set gateway.controlUi.allowInsecureAuth true
+sudo openclaw config set gateway.controlUi.dangerouslyDisableDeviceAuth true
+sudo openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+sudo openclaw config set gateway.controlUi.allowedOrigins '["http://<PI_IP>:<PORT>","http://127.0.0.1:<PORT>","http://localhost:<PORT>"]'
+sudo systemctl restart openclaw-gateway.service
+```
+
+Use in dashboard:
+
+- WebSocket URL: `ws://<PI_IP>:<PORT>`
+- Gateway token: your configured token
+
+---
+
+## How updates work
+
+ClawOS updates are runtime-asset driven.
+
+- release artifact: `clawos-runtime-<version>.tar.gz`
+- checksum file: `SHA256SUMS-<version>.txt`
+- updates are applied via `apply.sh`
+- service is restarted after runtime files are installed
+
+Recommended update flow:
+
+1. download release + checksum
+2. verify checksum
+3. apply runtime
+4. verify service health
+
+---
+
+## Security model
+
+### Defaults
+
+- gateway token auth required
+- controlled origin checks for Control UI
+- explicit LAN insecure mode opt-in
+
+### Recommended hardening
+
+- use long random tokens (not short test tokens)
+- keep insecure UI flags off outside private dev LAN
+- prefer HTTPS / secure context where possible
+- restrict network access via firewall/router
+- rotate tokens periodically
+
+---
+
+## Operations reference
+
+### Core commands
+
+```bash
+clawos setup
 clawos status
 clawos doctor
 sudo clawos update
+openclaw gateway status
 ```
 
-(Equivalent low-level command for setup: `sudo /usr/local/bin/clawos-setup-gateway.sh`)
-
-The guided flow asks for:
-- device name (default `klb-clawos`)
-- token/password
-- gateway port (example `18800`)
-- LAN mode on/off
-
-Diagnostics are now action-first. On gateway startup errors, preflight prints:
-- what happened
-- likely why
-- exact command(s) to fix
-
-If you hit LAN origin mismatch (4008), run:
+### Service control
 
 ```bash
-sudo /usr/local/bin/clawos-fix-origin.sh
+sudo systemctl restart openclaw-gateway.service
+sudo systemctl status openclaw-gateway.service --no-pager
+sudo journalctl -u openclaw-gateway.service -n 80 --no-pager
 ```
 
-Manual one-liner fallback:
+---
 
-```bash
-sudo openclaw config set gateway.controlUi.allowedOrigins '["http://<pi-ip>:<port>","http://127.0.0.1:<port>","http://localhost:<port>"]'
-```
+## Contributing
 
-## Release/versioning
+Contributions are welcome.
 
-- Current release target: `v0.1.16`
-- Release artifact: `clawos-pi.img.xz`
-- SHA256 checksums generated by `scripts/release-image.sh`
-- Release notes template: `docs/release-notes-template.md`
+Best contribution types:
 
-## Release process
+- reproducible bug reports (commands + logs + expected vs actual)
+- setup reliability improvements
+- security hardening improvements
+- documentation clarity improvements
+- CI/release process hardening
 
-- Release workflow runs on **new tag pushes only** (`v*`).
-- Tags are immutable. Never move or force-update an existing tag.
-- Patch release scheme is **3-part semver tags** (`v0.1.9`, `v0.1.10`, `v0.1.11`, ...).
-- If a release is broken, bump to the next patch version and tag again.
-- CI must publish assets for that new tag; do not reuse old tags.
+When opening issues/PRs, include:
 
-## Release validity guarantees
+- Pi model + OS base
+- exact ClawOS version
+- exact commands run
+- relevant `systemctl` and `journalctl` output
 
-Every release tag must pass rootfs validation in CI before any GitHub Release is created/uploaded.
+---
 
-Exact CI checks (inside mounted/chrooted image rootfs):
+## Credits
 
-- `dpkg -s openssh-server` succeeds
-- `systemctl is-enabled ssh` returns `enabled`
-- SSH runtime dir is systemd-managed (`RuntimeDirectory=sshd`) or `/etc/tmpfiles.d/sshd.conf` exists
-- if `ssh.socket` exists, it is not enabled (`masked`/`disabled`/`static` only)
-- `dpkg -s sudo` succeeds
-- `claw` user exists and belongs to `sudo` (group + `su - claw -c 'id -nG'`)
-- `node -v` major version is `>= 22`
-- `command -v openclaw` resolves to `/usr/local/bin/openclaw`
-- `/usr/local/bin/openclaw --help` exits 0
-- `/etc/openclaw/openclaw.env` exists and contains exact lines:
-  - `OPENCLAW_GATEWAY_BIND=127.0.0.1`
-  - `OPENCLAW_GATEWAY_PORT=18789`
-- `systemctl cat openclaw.service` succeeds
-- if `openclaw.service` is present in unit files, `systemctl is-enabled openclaw.service` returns `enabled`
+ClawOS is the result of real **human + AI collaboration**.
 
-Release assets are mandatory and checksum-verified in CI:
+- **Human direction, product decisions, validation, and release accountability**
+- **OpenClaw runtime and ecosystem**
+- **ChatGPT-assisted systems engineering, debugging iteration, and documentation refinement**
 
-- `clawos-pi.img.xz`
-- `clawos-runtime-<version>.tar.gz`
-- `SHA256SUMS.txt`
-- `RELEASE_NOTES.md`
+This project demonstrates a practical pattern:
+**humans lead, AI accelerates, reliability comes from disciplined validation.**
 
-If any validation or checksum check fails, CI fails and no release is published.
-
-## Updates
-
-- Manual updater: `sudo clawos-update`
-- Version info: `clawos-about`
-- OTA runtime artifact: `clawos-runtime-<version>.tar.gz`
-- Optional auto-update: `clawos-update.timer` daily at 03:00
-- Auto-update runs only when `/etc/clawos/clawos.env` has `AUTO_UPDATE=true`
-- Checksum verification is mandatory before apply; failures abort safely
-- Runtime update scope is limited to ClawOS-managed files only (no full OS reflashing)
-
-## Support matrix
-
-| Raspberry Pi model | Status | Notes |
-|---|---|---|
-| Pi 4B (2GB/4GB/8GB) | Pending validation | Target for v0.1.0 proof run |
-| Pi 5 | Pending validation | Expected to work; not yet proven |
-| Pi 3B/3B+ | Pending validation | Not yet tested |
-| Pi Zero 2 W | Pending validation | Ethernet adapter required for LAN-only v1 |
-
-## Branch protection (recommended before public release)
-
-- Protect `main`
-- Require PR + review
-- Require CI checks
-- Disable force-push to `main`
+---
 
 ## Disclaimer
 
-This project is provided **as is**, without warranty. You are responsible for your deployment, network exposure, credentials, and system safety.
+ClawOS is provided **as-is**, without warranty.
+You are responsible for deployment, network exposure, credentials, and operational safety.
