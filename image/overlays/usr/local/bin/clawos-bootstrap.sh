@@ -9,17 +9,17 @@ echo "[$(date -Is)] clawos-bootstrap start"
 mkdir -p /var/lib/clawos /etc/default /etc/clawos
 
 # Branding + version
-hostnamectl set-hostname klb-clawos || true
+hostname klb-clawos >/dev/null 2>&1 || true
 echo "klb-clawos" >/etc/hostname
 if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.20-beta5" >/etc/clawos/version
+echo "v0.1.20-beta6" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.20-beta5
+Version: v0.1.20-beta6
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF

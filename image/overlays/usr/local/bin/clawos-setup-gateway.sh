@@ -126,9 +126,10 @@ run_as_user openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || t
 run_as_user openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
 run_as_user openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
 
-if ! hostnamectl set-hostname "$DEVICE_NAME"; then
-  echo "[WARN] Could not set static hostname via hostnamectl. Trying transient hostname..."
-  hostnamectl --transient set-hostname "$DEVICE_NAME" >/dev/null 2>&1 || true
+# Avoid noisy hostnamectl static-hostname failures on constrained images.
+# 1) set live hostname directly; 2) persist when writable.
+if ! hostname "$DEVICE_NAME" >/dev/null 2>&1; then
+  echo "[WARN] Could not set transient hostname. Continuing with current hostname."
 fi
 if ! echo "$DEVICE_NAME" >/etc/hostname 2>/dev/null; then
   echo "[WARN] Could not write /etc/hostname (read-only or restricted). Continuing with current hostname."
