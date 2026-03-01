@@ -1,6 +1,18 @@
-# ClawOS
+# 🦞 ClawOS — OpenClaw Runtime for Raspberry Pi
 
-**ClawOS • Made by KLB Groups**
+<p align="center">
+  <img alt="release" src="https://img.shields.io/github/v/release/TheRealKlobow/ClawOS?label=stable">
+  <img alt="license" src="https://img.shields.io/github/license/TheRealKlobow/ClawOS">
+  <img alt="tested" src="https://img.shields.io/badge/tested%20on-Raspberry%20Pi%204-success">
+  <img alt="opensource" src="https://img.shields.io/badge/open%20source-community-blue">
+</p>
+
+<p align="center">
+  <a href="#quick-start-flash-sd--run">Quick Start</a> •
+  <a href="#installation-guide-step-by-step">Install Guide</a> •
+  <a href="#security-model">Security</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
 ClawOS is a Raspberry Pi-focused, open-source runtime image and update stack for running OpenClaw reliably on LAN/home infrastructure.
 
