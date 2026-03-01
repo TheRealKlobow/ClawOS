@@ -24,6 +24,21 @@ run_as_user_bus() {
   sudo -u "$TARGET_USER" -H env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="$bus" "$@"
 }
 
+sync_openclaw_config() {
+  local runner="$1"
+  "$runner" openclaw config set gateway.mode local >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
+  "$runner" openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+}
+
+run_root() {
+  "$@"
+}
+
 ensure_user_service_path() {
   local path_line="Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   if [[ -f "$USER_SERVICE_FILE" ]] && ! grep -q '^Environment=PATH=' "$USER_SERVICE_FILE"; then
@@ -117,14 +132,9 @@ chown -R "$TARGET_USER":"$TARGET_USER" "$USER_CFG_DIR"
 chmod 700 "$USER_CFG_DIR"
 chmod 600 "$USER_CFG_FILE"
 
-# Also write through openclaw config keys (avoids drift with partial config merges).
-run_as_user openclaw config set gateway.mode local >/dev/null 2>&1 || true
-run_as_user openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
-run_as_user openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
-run_as_user openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
-run_as_user openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
-run_as_user openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
-run_as_user openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+# Keep both user and root OpenClaw config in sync for mode fallback safety.
+sync_openclaw_config run_as_user
+sync_openclaw_config run_root
 
 # Avoid noisy hostnamectl static-hostname failures on constrained images.
 # 1) set live hostname directly; 2) persist when writable.
@@ -183,6 +193,8 @@ if [[ "$READY" -ne 1 ]]; then
   run_as_user_bus openclaw gateway stop >/dev/null 2>&1 || true
   run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
 
+  # Ensure root-side runtime config/token matches setup values.
+  sync_openclaw_config run_root
   systemctl daemon-reload
   systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
   systemctl restart openclaw-gateway.service

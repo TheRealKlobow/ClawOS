@@ -15,11 +15,11 @@ if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.20-beta6" >/etc/clawos/version
+echo "v0.1.20-beta7" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.20-beta6
+Version: v0.1.20-beta7
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
@@ -41,6 +41,23 @@ run_as_user_bus() {
   runtime="/run/user/${uid}"
   bus="unix:path=${runtime}/bus"
   sudo -u "$TARGET_USER" -H env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="$bus" "$@"
+}
+
+sync_openclaw_config() {
+  local runner="$1"
+  "$runner" openclaw config set gateway.mode local >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.bind "$GATEWAY_BIND_RAW" >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.port "$GATEWAY_PORT" >/dev/null 2>&1 || true
+  "$runner" openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
+  if [[ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]]; then
+    "$runner" openclaw config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" >/dev/null 2>&1 || true
+    "$runner" openclaw config set gateway.remote.token "$OPENCLAW_GATEWAY_TOKEN" >/dev/null 2>&1 || true
+  fi
+  "$runner" openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+}
+
+run_root() {
+  "$@"
 }
 
 ensure_user_service_path() {
@@ -203,6 +220,9 @@ if [[ -n "$TARGET_UID" ]]; then
   run_as_user openclaw gateway install >/dev/null 2>&1 || true
   ensure_user_service_path
 
+  sync_openclaw_config run_as_user
+  sync_openclaw_config run_root
+
   is_healthy() {
     local s
     s="$(run_as_user openclaw gateway status 2>&1 || true)"
@@ -228,6 +248,7 @@ if [[ -n "$TARGET_UID" ]]; then
     SERVICE_MODE="system"
     run_as_user_bus openclaw gateway stop >/dev/null 2>&1 || true
     run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
+    sync_openclaw_config run_root
     systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
     systemctl restart openclaw-gateway.service
 
