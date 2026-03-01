@@ -49,6 +49,9 @@ write_cfg_json() {
     },
     "remote": {
       "token": "${esc_token}"
+    },
+    "controlUi": {
+      "allowedOrigins": ${ORIGINS_JSON}
     }
   }
 }
@@ -70,6 +73,11 @@ def tok(cfg):
     t=((g.get('remote') or {}).get('token'))
     return a,t
 
+def origins(cfg):
+    g=cfg.get('gateway',{})
+    cu=(g.get('controlUi') or {})
+    return cu.get('allowedOrigins')
+
 for p in (u,r):
     try:
         cfg=load(p)
@@ -89,6 +97,13 @@ ua,ut=tok(ucfg); ra,rt=tok(rcfg)
 if ua!=ra or ut!=rt:
     print("Root/user config drift")
     raise SystemExit(13)
+uo=origins(ucfg); ro=origins(rcfg)
+if not isinstance(uo, list) or not isinstance(ro, list) or not uo or not ro:
+    print("Root/user config drift")
+    raise SystemExit(14)
+if uo!=ro:
+    print("Root/user config drift")
+    raise SystemExit(15)
 print("OK")
 PY
 }
@@ -179,6 +194,9 @@ else
   LAN_HTTP_MODE="false"
 fi
 
+PRIMARY_IP="$(hostname -I | awk '{print $1}')"
+ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
+
 cat > "$CFG" <<EOF
 OPENCLAW_GATEWAY_BIND=${BIND}
 OPENCLAW_GATEWAY_PORT=${PORT}
@@ -215,9 +233,8 @@ openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
 
 check_invariants_or_fail
 
-PRIMARY_IP="$(hostname -I | awk '{print $1}')"
-ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
 run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 || true
+openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 || true
 
 loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
 loginctl start-user "$TARGET_USER" >/dev/null 2>&1 || true
