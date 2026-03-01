@@ -285,9 +285,20 @@ sudo journalctl -u openclaw-gateway.service -n 80 --no-pager
 
 ---
 
+## Hardware support status
+
+Current real-world validation status:
+
+- ✅ **Raspberry Pi 4**: tested and supported in current stable flow
+- ⏳ **Other Raspberry Pi models**: planned for future testing
+
+If you run ClawOS on another model and hit issues, report it with logs so support can be expanded safely.
+
 ## Contributing
 
-Contributions are welcome.
+ClawOS is open source and community-built.
+
+This project is made for the community, by someone from the community — contributions are welcome.
 
 Best contribution types:
 
@@ -303,6 +314,14 @@ When opening issues/PRs, include:
 - exact ClawOS version
 - exact commands run
 - relevant `systemctl` and `journalctl` output
+
+### Community contact
+
+If you encounter issues, contact:
+
+- **Discord:** `@Klobow`
+
+A dedicated Discord server will be set up later. If you want to help build and support ClawOS, reach out on Discord.
 
 ---
 

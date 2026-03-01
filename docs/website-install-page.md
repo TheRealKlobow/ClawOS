@@ -107,7 +107,18 @@ ClawOS uses checksum-verified runtime artifacts.
 
 ---
 
+## Hardware support status
+
+- ✅ Raspberry Pi 4: tested and validated
+- ⏳ Other Raspberry Pi models: planned for future testing
+
+If you test on other models, share reproducible logs so support can be expanded.
+
+---
+
 ## Contribute
+
+ClawOS is open source and community-driven.
 
 Contributions are welcome: reliability, security, docs, CI hardening.
 
@@ -117,6 +128,12 @@ When reporting issues, include:
 - exact version
 - exact commands run
 - `systemctl` + `journalctl` snippets
+
+Community contact:
+
+- Discord: `@Klobow`
+
+A dedicated Discord server is planned. If you want to help with development or support, reach out.
 
 ---
 
