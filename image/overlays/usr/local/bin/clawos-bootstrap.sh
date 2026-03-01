@@ -15,11 +15,11 @@ if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.20-beta4" >/etc/clawos/version
+echo "v0.1.20-beta5" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.20-beta4
+Version: v0.1.20-beta5
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
@@ -203,25 +203,43 @@ if [[ -n "$TARGET_UID" ]]; then
   run_as_user openclaw gateway install >/dev/null 2>&1 || true
   ensure_user_service_path
 
+  is_healthy() {
+    local s
+    s="$(run_as_user openclaw gateway status 2>&1 || true)"
+    echo "$s" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"
+  }
+
   SERVICE_MODE="user"
   if run_as_user_bus systemctl --user daemon-reload >/dev/null 2>&1; then
     run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
     run_as_user_bus openclaw gateway start >/dev/null 2>&1 || true
-  else
-    SERVICE_MODE="system"
-    systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
-    systemctl restart openclaw-gateway.service
   fi
 
   READY=0
-  for _ in $(seq 1 20); do
-    STATUS_OUT="$(run_as_user openclaw gateway status 2>&1 || true)"
-    if echo "$STATUS_OUT" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"; then
+  for _ in $(seq 1 12); do
+    if is_healthy; then
       READY=1
       break
     fi
     sleep 1
   done
+
+  if [[ "$READY" -ne 1 ]]; then
+    SERVICE_MODE="system"
+    run_as_user_bus openclaw gateway stop >/dev/null 2>&1 || true
+    run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
+    systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
+    systemctl restart openclaw-gateway.service
+
+    for _ in $(seq 1 12); do
+      if is_healthy; then
+        READY=1
+        break
+      fi
+      sleep 1
+    done
+  fi
+
   if [[ "$READY" -ne 1 ]]; then
     echo "[ERROR] bootstrap gateway health check failed (mode=$SERVICE_MODE)"
     run_as_user openclaw gateway status || true

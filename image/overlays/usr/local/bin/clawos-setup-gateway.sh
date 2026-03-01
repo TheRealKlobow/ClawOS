@@ -147,37 +147,53 @@ ALLOWED_ORIGINS_STATUS="needs update"
 ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
 run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 && ALLOWED_ORIGINS_STATUS="OK"
 
-# Stop any system-level service to avoid mixed mode / port conflicts.
-systemctl stop openclaw-gateway.service >/dev/null 2>&1 || true
-systemctl disable openclaw-gateway.service >/dev/null 2>&1 || true
-
-# Prefer user service mode, but fall back to system service if user bus is unavailable.
+# Prefer user service mode first.
+# If user-service start does not become healthy, hard-fallback to system service.
 loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
 loginctl start-user "$TARGET_USER" >/dev/null 2>&1 || true
 run_as_user openclaw gateway stop >/dev/null 2>&1 || true
 run_as_user openclaw gateway install >/dev/null 2>&1 || true
 ensure_user_service_path
 
+is_healthy() {
+  local s
+  s="$(run_as_user openclaw gateway status 2>&1 || true)"
+  echo "$s" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"
+}
+
 SERVICE_MODE="user"
 if run_as_user_bus systemctl --user daemon-reload >/dev/null 2>&1; then
   run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
   run_as_user_bus openclaw gateway start >/dev/null 2>&1 || true
-else
-  SERVICE_MODE="system"
-  systemctl daemon-reload
-  systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
-  systemctl restart openclaw-gateway.service
 fi
 
 READY=0
-for _ in $(seq 1 20); do
-  STATUS_OUT="$(run_as_user openclaw gateway status 2>&1 || true)"
-  if echo "$STATUS_OUT" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"; then
+for _ in $(seq 1 12); do
+  if is_healthy; then
     READY=1
     break
   fi
   sleep 1
 done
+
+if [[ "$READY" -ne 1 ]]; then
+  SERVICE_MODE="system"
+  # Clean user-mode instance before switching.
+  run_as_user_bus openclaw gateway stop >/dev/null 2>&1 || true
+  run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
+
+  systemctl daemon-reload
+  systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
+  systemctl restart openclaw-gateway.service
+
+  for _ in $(seq 1 12); do
+    if is_healthy; then
+      READY=1
+      break
+    fi
+    sleep 1
+  done
+fi
 
 echo
 echo "Connection Summary"
@@ -201,7 +217,11 @@ else
   echo "- Gateway status: FAILED"
   echo "  Collecting diagnostics..."
   run_as_user openclaw gateway status || true
-  run_as_user journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+  if [[ "$SERVICE_MODE" == "user" ]]; then
+    run_as_user_bus journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+  else
+    journalctl -u openclaw-gateway.service -n 120 --no-pager || true
+  fi
   echo "[ERROR] Setup failed: gateway did not become healthy automatically."
   exit 1
 fi
