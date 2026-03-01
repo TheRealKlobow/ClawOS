@@ -10,7 +10,14 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-/home/$TARGET_USER}"
 USER_CFG_DIR="$TARGET_HOME/.openclaw"
 USER_CFG_FILE="$USER_CFG_DIR/openclaw.json"
-USER_SERVICE_FILE="$TARGET_HOME/.config/systemd/user/openclaw-gateway.service"
+ROOT_CFG_DIR="/root/.openclaw"
+ROOT_CFG_FILE="$ROOT_CFG_DIR/openclaw.json"
+
+fail_setup() {
+  local reason="$1"
+  echo "SETUP_RESULT: FAIL (reason=${reason})"
+  exit 1
+}
 
 run_as_user() {
   sudo -u "$TARGET_USER" -H "$@"
@@ -24,37 +31,109 @@ run_as_user_bus() {
   sudo -u "$TARGET_USER" -H env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="$bus" "$@"
 }
 
-sync_openclaw_config() {
-  local runner="$1"
-  "$runner" openclaw config set gateway.mode local >/dev/null 2>&1 || true
-  "$runner" openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
-  "$runner" openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
-  "$runner" openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
-  "$runner" openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
-  "$runner" openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
-  "$runner" openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+write_cfg_json() {
+  local file="$1"
+  local esc_token
+  esc_token="${TOKEN//\\/\\\\}"
+  esc_token="${esc_token//\"/\\\"}"
+  mkdir -p "$(dirname "$file")"
+  cat > "$file" <<EOF
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "${BIND}",
+    "port": ${PORT},
+    "auth": {
+      "mode": "token",
+      "token": "${esc_token}"
+    },
+    "remote": {
+      "token": "${esc_token}"
+    }
+  }
+}
+EOF
 }
 
-run_root() {
-  "$@"
-}
+assert_cfg_invariants() {
+  python3 - <<'PY' "$USER_CFG_FILE" "$ROOT_CFG_FILE"
+import json,sys
+u,r=sys.argv[1],sys.argv[2]
 
-ensure_user_service_path() {
-  local path_line="Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-  if [[ -f "$USER_SERVICE_FILE" ]] && ! grep -q '^Environment=PATH=' "$USER_SERVICE_FILE"; then
-    python3 - <<'PY' "$USER_SERVICE_FILE" "$path_line"
-import sys
-p, line = sys.argv[1], sys.argv[2]
-with open(p, 'r', encoding='utf-8') as f:
-    txt = f.read()
-if '[Service]\n' in txt:
-    txt = txt.replace('[Service]\n', '[Service]\n' + line + '\n', 1)
-else:
-    txt += '\n[Service]\n' + line + '\n'
-with open(p, 'w', encoding='utf-8') as f:
-    f.write(txt)
+def load(p):
+    with open(p,'r',encoding='utf-8') as f:
+        return json.load(f)
+
+def tok(cfg):
+    g=cfg.get('gateway',{})
+    a=((g.get('auth') or {}).get('token'))
+    t=((g.get('remote') or {}).get('token'))
+    return a,t
+
+for p in (u,r):
+    try:
+        cfg=load(p)
+    except Exception:
+        print("Root/user config drift")
+        raise SystemExit(10)
+    a,t=tok(cfg)
+    if not a or not t:
+        print("Root config token mismatch")
+        raise SystemExit(11)
+    if a!=t:
+        print("Root config token mismatch")
+        raise SystemExit(12)
+
+ucfg=load(u); rcfg=load(r)
+ua,ut=tok(ucfg); ra,rt=tok(rcfg)
+if ua!=ra or ut!=rt:
+    print("Root/user config drift")
+    raise SystemExit(13)
+print("OK")
 PY
-    chown "$TARGET_USER":"$TARGET_USER" "$USER_SERVICE_FILE" || true
+}
+
+check_invariants_or_fail() {
+  local out
+  out="$(assert_cfg_invariants 2>&1 || true)"
+  if echo "$out" | grep -q "OK"; then
+    return 0
+  fi
+  if echo "$out" | grep -qi "token"; then
+    fail_setup "Root config token mismatch"
+  fi
+  fail_setup "Root/user config drift"
+}
+
+stop_and_free_port() {
+  local p="$1"
+  run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
+  run_as_user openclaw gateway stop >/dev/null 2>&1 || true
+  systemctl stop openclaw-gateway.service >/dev/null 2>&1 || true
+
+  local pids
+  pids="$(ss -ltnp 2>/dev/null | awk -v p=":${p}" '$4 ~ p {print $NF}' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u)"
+  if [[ -n "$pids" ]]; then
+    kill -9 $pids >/dev/null 2>&1 || true
+  fi
+
+  if ss -ltn "( sport = :${p} )" | tail -n +2 | grep -q .; then
+    fail_setup "Port still bound after stop"
+  fi
+}
+
+is_healthy() {
+  local s
+  s="$(run_as_user openclaw gateway status 2>&1 || true)"
+  echo "$s" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"
+}
+
+print_fail_logs() {
+  local mode="$1"
+  if [[ "$mode" == "user" ]]; then
+    run_as_user_bus journalctl --user -u openclaw-gateway.service -n 50 --no-pager || true
+  else
+    journalctl -u openclaw-gateway.service -n 50 --no-pager || true
   fi
 }
 
@@ -108,138 +187,76 @@ OPENCLAW_LAN_HTTP_MODE=${LAN_HTTP_MODE}
 EOF
 chmod 600 "$CFG"
 
-# Keep user CLI/gateway config in sync with setup choices.
-mkdir -p "$USER_CFG_DIR"
-ESC_TOKEN="${TOKEN//\\/\\\\}"
-ESC_TOKEN="${ESC_TOKEN//\"/\\\"}"
-cat > "$USER_CFG_FILE" <<EOF
-{
-  "gateway": {
-    "mode": "local",
-    "bind": "${BIND}",
-    "port": ${PORT},
-    "auth": {
-      "mode": "token",
-      "token": "${ESC_TOKEN}"
-    },
-    "remote": {
-      "token": "${ESC_TOKEN}"
-    }
-  }
-}
-EOF
+# Always overwrite both configs.
+write_cfg_json "$USER_CFG_FILE"
+write_cfg_json "$ROOT_CFG_FILE"
 chown -R "$TARGET_USER":"$TARGET_USER" "$USER_CFG_DIR"
 chmod 700 "$USER_CFG_DIR"
 chmod 600 "$USER_CFG_FILE"
+chmod 700 "$ROOT_CFG_DIR"
+chmod 600 "$ROOT_CFG_FILE"
 
-# Keep both user and root OpenClaw config in sync for mode fallback safety.
-sync_openclaw_config run_as_user
-sync_openclaw_config run_root
+# Sync via CLI too (keeps ancillary keys aligned).
+run_as_user openclaw config set gateway.mode local >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
+run_as_user openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
 
-# Avoid noisy hostnamectl static-hostname failures on constrained images.
-# 1) set live hostname directly; 2) persist when writable.
-if ! hostname "$DEVICE_NAME" >/dev/null 2>&1; then
-  echo "[WARN] Could not set transient hostname. Continuing with current hostname."
-fi
-if ! echo "$DEVICE_NAME" >/etc/hostname 2>/dev/null; then
-  echo "[WARN] Could not write /etc/hostname (read-only or restricted). Continuing with current hostname."
-fi
-if ! grep -qE "^127\.0\.1\.1\s+${DEVICE_NAME}(\s|$)" /etc/hosts 2>/dev/null; then
-  sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
-  echo "127.0.1.1 ${DEVICE_NAME}" >>/etc/hosts 2>/dev/null || true
-fi
-CURRENT_HOST="$(hostname 2>/dev/null || true)"
-if [[ -n "$CURRENT_HOST" ]] && ! grep -qE "^127\.0\.1\.1\s+${CURRENT_HOST}(\s|$)" /etc/hosts 2>/dev/null; then
-  echo "127.0.1.1 ${CURRENT_HOST}" >>/etc/hosts 2>/dev/null || true
-fi
+openclaw config set gateway.mode local >/dev/null 2>&1 || true
+openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
+openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
+openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
+openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
+openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
+openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+
+check_invariants_or_fail
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
-ALLOWED_ORIGINS_STATUS="needs update"
 ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
-run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 && ALLOWED_ORIGINS_STATUS="OK"
+run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 || true
 
-# Prefer user service mode first.
-# If user-service start does not become healthy, hard-fallback to system service.
 loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
 loginctl start-user "$TARGET_USER" >/dev/null 2>&1 || true
-run_as_user openclaw gateway stop >/dev/null 2>&1 || true
-run_as_user openclaw gateway install >/dev/null 2>&1 || true
-ensure_user_service_path
-
-is_healthy() {
-  local s
-  s="$(run_as_user openclaw gateway status 2>&1 || true)"
-  echo "$s" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"
-}
 
 SERVICE_MODE="user"
+stop_and_free_port "$PORT"
+
 if run_as_user_bus systemctl --user daemon-reload >/dev/null 2>&1; then
-  run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
+  run_as_user openclaw gateway install >/dev/null 2>&1 || true
   run_as_user_bus openclaw gateway start >/dev/null 2>&1 || true
 fi
 
 READY=0
 for _ in $(seq 1 12); do
-  if is_healthy; then
-    READY=1
-    break
-  fi
+  if is_healthy; then READY=1; break; fi
   sleep 1
 done
 
 if [[ "$READY" -ne 1 ]]; then
   SERVICE_MODE="system"
-  # Clean user-mode instance before switching.
-  run_as_user_bus openclaw gateway stop >/dev/null 2>&1 || true
-  run_as_user_bus systemctl --user stop openclaw-gateway.service >/dev/null 2>&1 || true
+  stop_and_free_port "$PORT"
 
-  # Ensure root-side runtime config/token matches setup values.
-  sync_openclaw_config run_root
+  # Re-read + validate root config before system start.
+  check_invariants_or_fail
+
   systemctl daemon-reload
   systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
   systemctl restart openclaw-gateway.service
 
   for _ in $(seq 1 12); do
-    if is_healthy; then
-      READY=1
-      break
-    fi
+    if is_healthy; then READY=1; break; fi
     sleep 1
   done
 fi
 
-echo
-echo "Connection Summary"
-echo "- Device: ${DEVICE_NAME}"
-echo "- Bind: ${BIND}"
-echo "- Port: ${PORT}"
-echo "- UI: http://${PRIMARY_IP:-127.0.0.1}:${PORT}/"
-echo "- WS: ws://${PRIMARY_IP:-127.0.0.1}:${PORT}"
-echo "- Token: ${TOKEN}"
-echo "- Allowed origins: ${ALLOWED_ORIGINS_STATUS}"
-echo "- Service mode: ${SERVICE_MODE}"
-echo "- Synced CLI config: ${USER_CFG_FILE}"
-echo "- Repo: https://github.com/TheRealKlobow/ClawOS"
-echo "- Site: http://clawos.klbgroups.com (coming soon)"
-if [[ "$LAN_HTTP_MODE" == "true" ]]; then
-  echo "- Warning: LAN HTTP mode enabled (not secure on public networks)"
+if [[ "$READY" -ne 1 ]]; then
+  print_fail_logs "$SERVICE_MODE"
+  fail_setup "Gateway unhealthy after start"
 fi
-if [[ "$READY" -eq 1 ]]; then
-  echo "- Gateway status: ready"
-else
-  echo "- Gateway status: FAILED"
-  echo "  Collecting diagnostics..."
-  run_as_user openclaw gateway status || true
-  if [[ "$SERVICE_MODE" == "user" ]]; then
-    run_as_user_bus journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
-  else
-    journalctl -u openclaw-gateway.service -n 120 --no-pager || true
-  fi
-  echo "[ERROR] Setup failed: gateway did not become healthy automatically."
-  exit 1
-fi
-echo
-if [[ "$ALLOWED_ORIGINS_STATUS" != "OK" ]]; then
-  echo "If origin mismatch appears, run:"
-  echo "openclaw config set gateway.controlUi.allowedOrigins '${ORIGINS_JSON}'"
-fi
+
+token_prefix="${TOKEN:0:6}"
+echo "SETUP_RESULT: PASS (mode=${SERVICE_MODE} port=${PORT} token=${token_prefix})"
