@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ! -x /usr/local/bin/openclaw ]]; then
-  echo "[ERROR] What happened: /usr/local/bin/openclaw is missing or not executable"
+OPENCLAW_BIN="$(command -v openclaw || true)"
+if [[ -z "$OPENCLAW_BIN" || ! -x "$OPENCLAW_BIN" ]]; then
+  echo "[ERROR] What happened: openclaw binary is missing or not executable"
   echo "[WHY] Likely cause: image provisioning did not finish correctly"
-  echo "[FIX] Verify binary: ls -l /usr/local/bin/openclaw"
+  echo "[FIX] Verify binary: command -v openclaw && ls -l \"$(command -v openclaw)\""
   echo "[FIX] Reinstall runtime/image or run guided setup again"
   exit 1
 fi
