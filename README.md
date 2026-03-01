@@ -232,6 +232,30 @@ sudo openclaw config set gateway.controlUi.allowedOrigins '["http://<PI_IP>:<POR
 sudo systemctl restart openclaw-gateway.service
 ```
 
+### One-shot LAN dev profile (copy/paste)
+
+If you want a full LAN profile in one go, use:
+
+```bash
+PI_IP="192.168.1.74"
+PORT="18888"
+TOKEN="change-me-long-token"
+
+sudo openclaw config set gateway.bind lan
+sudo openclaw config set gateway.port "$PORT"
+sudo openclaw config set gateway.auth.mode token
+sudo openclaw config set gateway.auth.token "$TOKEN"
+sudo openclaw config set gateway.remote.token "$TOKEN"
+
+sudo openclaw config set gateway.controlUi.allowInsecureAuth true
+sudo openclaw config set gateway.controlUi.dangerouslyDisableDeviceAuth true
+sudo openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+sudo openclaw config set gateway.controlUi.allowedOrigins "[\"http://$PI_IP:$PORT\",\"http://127.0.0.1:$PORT\",\"http://localhost:$PORT\"]"
+
+sudo systemctl restart openclaw-gateway.service
+sudo systemctl is-active openclaw-gateway.service
+```
+
 Use in dashboard:
 
 - WebSocket URL: `ws://<PI_IP>:<PORT>`
