@@ -10,9 +10,29 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-/home/$TARGET_USER}"
 USER_CFG_DIR="$TARGET_HOME/.openclaw"
 USER_CFG_FILE="$USER_CFG_DIR/openclaw.json"
+USER_SERVICE_FILE="$TARGET_HOME/.config/systemd/user/openclaw-gateway.service"
 
 run_as_user() {
   sudo -u "$TARGET_USER" -H "$@"
+}
+
+ensure_user_service_path() {
+  local path_line="Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  if [[ -f "$USER_SERVICE_FILE" ]] && ! grep -q '^Environment=PATH=' "$USER_SERVICE_FILE"; then
+    python3 - <<'PY' "$USER_SERVICE_FILE" "$path_line"
+import sys
+p, line = sys.argv[1], sys.argv[2]
+with open(p, 'r', encoding='utf-8') as f:
+    txt = f.read()
+if '[Service]\n' in txt:
+    txt = txt.replace('[Service]\n', '[Service]\n' + line + '\n', 1)
+else:
+    txt += '\n[Service]\n' + line + '\n'
+with open(p, 'w', encoding='utf-8') as f:
+    f.write(txt)
+PY
+    chown "$TARGET_USER":"$TARGET_USER" "$USER_SERVICE_FILE" || true
+  fi
 }
 
 echo "ClawOS • Made by KLB Groups"
@@ -127,6 +147,9 @@ systemctl disable openclaw-gateway.service >/dev/null 2>&1 || true
 loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
 run_as_user openclaw gateway stop >/dev/null 2>&1 || true
 run_as_user openclaw gateway install >/dev/null 2>&1 || true
+ensure_user_service_path
+run_as_user systemctl --user daemon-reload >/dev/null 2>&1 || true
+run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
 run_as_user openclaw gateway start >/dev/null 2>&1 || true
 
 READY=0
@@ -157,8 +180,12 @@ fi
 if [[ "$READY" -eq 1 ]]; then
   echo "- Gateway status: ready"
 else
-  echo "- Gateway status: warm-up may still be in progress"
-  echo "  Try: openclaw gateway status"
+  echo "- Gateway status: FAILED"
+  echo "  Collecting diagnostics..."
+  run_as_user openclaw gateway status || true
+  run_as_user journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+  echo "[ERROR] Setup failed: gateway did not become healthy automatically."
+  exit 1
 fi
 echo
 if [[ "$ALLOWED_ORIGINS_STATUS" != "OK" ]]; then

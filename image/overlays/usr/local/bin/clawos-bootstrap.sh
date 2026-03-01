@@ -15,16 +15,44 @@ if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.16" >/etc/clawos/version
+echo "v0.1.20-beta3" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.16
+Version: v0.1.20-beta3
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
 
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
+TARGET_USER="claw"
+TARGET_UID="$(id -u "$TARGET_USER" 2>/dev/null || echo "")"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+TARGET_HOME="${TARGET_HOME:-/home/$TARGET_USER}"
+USER_SERVICE_FILE="$TARGET_HOME/.config/systemd/user/openclaw-gateway.service"
+
+run_as_user() {
+  sudo -u "$TARGET_USER" -H "$@"
+}
+
+ensure_user_service_path() {
+  local path_line="Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  if [[ -f "$USER_SERVICE_FILE" ]] && ! grep -q '^Environment=PATH=' "$USER_SERVICE_FILE"; then
+    python3 - <<'PY' "$USER_SERVICE_FILE" "$path_line"
+import sys
+p, line = sys.argv[1], sys.argv[2]
+with open(p, 'r', encoding='utf-8') as f:
+    txt = f.read()
+if '[Service]\n' in txt:
+    txt = txt.replace('[Service]\n', '[Service]\n' + line + '\n', 1)
+else:
+    txt += '\n[Service]\n' + line + '\n'
+with open(p, 'w', encoding='utf-8') as f:
+    f.write(txt)
+PY
+    chown "$TARGET_USER":"$TARGET_USER" "$USER_SERVICE_FILE" || true
+  fi
+}
 
 if [[ ! -f /etc/clawos/clawos.env ]]; then
   cat >/etc/clawos/clawos.env <<'EOF'
@@ -156,11 +184,34 @@ if [[ "$LAN_MODE" == "off" ]]; then
 fi
 WS_URL="ws://${WS_HOST}:${GATEWAY_PORT}"
 
-# Enable and start OpenClaw gateway service only
+# Enable and start OpenClaw gateway in user-service mode (matches `openclaw gateway status`).
 systemctl daemon-reload
 systemctl disable --now openclaw.service >/dev/null 2>&1 || true
-systemctl enable openclaw-gateway.service
-systemctl restart openclaw-gateway.service
+systemctl disable --now openclaw-gateway.service >/dev/null 2>&1 || true
+
+if [[ -n "$TARGET_UID" ]]; then
+  loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
+  run_as_user openclaw gateway install >/dev/null 2>&1 || true
+  ensure_user_service_path
+  run_as_user systemctl --user daemon-reload >/dev/null 2>&1 || true
+  run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
+  run_as_user openclaw gateway start >/dev/null 2>&1 || true
+
+  READY=0
+  for _ in $(seq 1 20); do
+    STATUS_OUT="$(run_as_user openclaw gateway status 2>&1 || true)"
+    if echo "$STATUS_OUT" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"; then
+      READY=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$READY" -ne 1 ]]; then
+    echo "[ERROR] bootstrap gateway health check failed"
+    run_as_user openclaw gateway status || true
+    run_as_user journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+  fi
+fi
 
 cat >/etc/motd <<EOF
 ClawOS • Made by KLB Groups
