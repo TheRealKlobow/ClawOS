@@ -11,6 +11,10 @@ TARGET_HOME="${TARGET_HOME:-/home/$TARGET_USER}"
 USER_CFG_DIR="$TARGET_HOME/.openclaw"
 USER_CFG_FILE="$USER_CFG_DIR/openclaw.json"
 
+run_as_user() {
+  sudo -u "$TARGET_USER" -H "$@"
+}
+
 echo "ClawOS • Made by KLB Groups"
 echo "Gateway guided setup"
 echo
@@ -30,7 +34,7 @@ fi
 
 if ss -ltn "( sport = :${PORT} )" | tail -n +2 | grep -q .; then
   echo "Port ${PORT} already in use."
-  for p in $(seq $((PORT + 1)) $((PORT + 20))); do
+  for p in $(seq $((PORT + 1)) $((PORT + 30))); do
     if ! ss -ltn "( sport = :${p} )" | tail -n +2 | grep -q .; then
       echo "Suggested free port: ${p}"
       read -rp "Use ${p}? [Y/n]: " yn
@@ -61,8 +65,7 @@ OPENCLAW_LAN_HTTP_MODE=${LAN_HTTP_MODE}
 EOF
 chmod 600 "$CFG"
 
-# Keep user CLI/gateway config in sync with system gateway config so
-# `openclaw gateway status` reflects the same bind/port/token choices.
+# Keep user CLI/gateway config in sync with setup choices.
 mkdir -p "$USER_CFG_DIR"
 ESC_TOKEN="${TOKEN//\\/\\\\}"
 ESC_TOKEN="${ESC_TOKEN//\"/\\\"}"
@@ -86,6 +89,15 @@ chown -R "$TARGET_USER":"$TARGET_USER" "$USER_CFG_DIR"
 chmod 700 "$USER_CFG_DIR"
 chmod 600 "$USER_CFG_FILE"
 
+# Also write through openclaw config keys (avoids drift with partial config merges).
+run_as_user openclaw config set gateway.mode local >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.bind "$BIND" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.port "$PORT" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.auth.mode token >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.auth.token "$TOKEN" >/dev/null 2>&1 || true
+run_as_user openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
+run_as_user openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
+
 if ! hostnamectl set-hostname "$DEVICE_NAME"; then
   echo "[WARN] Could not set static hostname via hostnamectl. Trying transient hostname..."
   hostnamectl --transient set-hostname "$DEVICE_NAME" >/dev/null 2>&1 || true
@@ -105,15 +117,27 @@ fi
 PRIMARY_IP="$(hostname -I | awk '{print $1}')"
 ALLOWED_ORIGINS_STATUS="needs update"
 ORIGINS_JSON="[\"http://${PRIMARY_IP:-127.0.0.1}:${PORT}\",\"http://127.0.0.1:${PORT}\",\"http://localhost:${PORT}\"]"
-openclaw config unset gateway.remote.url >/dev/null 2>&1 || true
-openclaw config set gateway.remote.token "$TOKEN" >/dev/null 2>&1 || true
-if openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1; then
-  ALLOWED_ORIGINS_STATUS="OK"
-fi
+run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON" >/dev/null 2>&1 && ALLOWED_ORIGINS_STATUS="OK"
 
-systemctl daemon-reload
-systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
-systemctl restart openclaw-gateway.service
+# Stop any system-level service to avoid mixed mode / port conflicts.
+systemctl stop openclaw-gateway.service >/dev/null 2>&1 || true
+systemctl disable openclaw-gateway.service >/dev/null 2>&1 || true
+
+# Ensure user service mode is installed and started automatically.
+loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
+run_as_user openclaw gateway stop >/dev/null 2>&1 || true
+run_as_user openclaw gateway install >/dev/null 2>&1 || true
+run_as_user openclaw gateway start >/dev/null 2>&1 || true
+
+READY=0
+for _ in $(seq 1 15); do
+  STATUS_OUT="$(run_as_user openclaw gateway status 2>&1 || true)"
+  if echo "$STATUS_OUT" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"; then
+    READY=1
+    break
+  fi
+  sleep 1
+done
 
 echo
 echo "Connection Summary"
@@ -129,6 +153,12 @@ echo "- Repo: https://github.com/TheRealKlobow/ClawOS"
 echo "- Site: http://clawos.klbgroups.com (coming soon)"
 if [[ "$LAN_HTTP_MODE" == "true" ]]; then
   echo "- Warning: LAN HTTP mode enabled (not secure on public networks)"
+fi
+if [[ "$READY" -eq 1 ]]; then
+  echo "- Gateway status: ready"
+else
+  echo "- Gateway status: warm-up may still be in progress"
+  echo "  Try: openclaw gateway status"
 fi
 echo
 if [[ "$ALLOWED_ORIGINS_STATUS" != "OK" ]]; then
