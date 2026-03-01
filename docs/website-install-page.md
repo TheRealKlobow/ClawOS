@@ -26,9 +26,24 @@ ClawOS standardizes that layer so setup is repeatable and diagnosable.
 
 ## Quick Install
 
+1. Download latest stable ClawOS image from GitHub Releases.
+2. Flash SD with Raspberry Pi Imager or balenaEtcher.
+3. Boot Pi and SSH in:
+
 ```bash
 ssh claw@<PI_IP>
+clawos setup
+```
 
+Expected completion line:
+
+```text
+SETUP_RESULT: PASS (mode=... port=... token=...)
+```
+
+Optional runtime update (if image is older than latest stable runtime):
+
+```bash
 set -euo pipefail
 TMP="$(mktemp -d)"
 cd "$TMP"
@@ -42,15 +57,6 @@ curl -fL --retry 3 -o SHA256SUMS-v0.1.20-stable.txt \
 sha256sum -c SHA256SUMS-v0.1.20-stable.txt
 tar -xzf clawos-runtime-v0.1.20-stable.tar.gz
 sudo bash ./apply.sh
-
-echo "v0.1.20-stable" | sudo tee /etc/clawos/version >/dev/null
-clawos setup
-```
-
-Expected completion line:
-
-```text
-SETUP_RESULT: PASS (mode=... port=... token=...)
 ```
 
 ---

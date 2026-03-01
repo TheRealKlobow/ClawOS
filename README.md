@@ -8,26 +8,19 @@ ClawOS is a Raspberry Pi-focused, open-source runtime image and update stack for
 - Stable release: `v0.1.20-stable`
 - License: MIT (see `LICENSE`)
 
-## Quick Start (fast install)
+## Quick Start (flash SD + run)
+
+1. Download the latest **stable ClawOS image** from Releases.
+2. Flash it to SD card (Raspberry Pi Imager or balenaEtcher).
+3. Boot Pi on LAN and SSH in:
 
 ```bash
 ssh claw@<PI_IP>
+```
 
-set -euo pipefail
-TMP="$(mktemp -d)"
-cd "$TMP"
+4. Run guided setup:
 
-curl -fL --retry 3 -o clawos-runtime-v0.1.20-stable.tar.gz \
-  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/clawos-runtime-v0.1.20-stable.tar.gz
-
-curl -fL --retry 3 -o SHA256SUMS-v0.1.20-stable.txt \
-  https://github.com/TheRealKlobow/ClawOS/releases/download/v0.1.20-stable/SHA256SUMS-v0.1.20-stable.txt
-
-sha256sum -c SHA256SUMS-v0.1.20-stable.txt
-tar -xzf clawos-runtime-v0.1.20-stable.tar.gz
-sudo bash ./apply.sh
-
-echo "v0.1.20-stable" | sudo tee /etc/clawos/version >/dev/null
+```bash
 clawos setup
 ```
 
@@ -37,6 +30,14 @@ Expected completion line:
 SETUP_RESULT: PASS (mode=... port=... token=...)
 ```
 
+5. Verify service is running:
+
+```bash
+sudo systemctl is-active openclaw-gateway.service
+```
+
+> Optional: if you flashed an older image, apply the latest stable runtime update from Releases (see Installation Guide below).
+>
 > Full architecture, security rationale, and operations guidance continue below and remain the authoritative documentation.
 
 ---
@@ -129,16 +130,24 @@ A reliable, self-hosted, AI-native operations substrate where normal people can 
 ### 0) Requirements
 
 - Raspberry Pi (Ethernet recommended)
-- flashed ClawOS-compatible base image
+- SD card flashed with ClawOS image from Releases
 - SSH access to the Pi
 
-### 1) SSH into the Pi
+### 1) Flash the SD card
+
+- Download latest stable image from GitHub Releases
+- Flash using Raspberry Pi Imager or balenaEtcher
+- Boot the Pi and wait for network DHCP lease
+
+### 2) SSH into the Pi
 
 ```bash
 ssh claw@<PI_IP>
 ```
 
-### 2) Install stable runtime
+### 3) (Optional) apply latest stable runtime update
+
+Use this only if your flashed image is older than current stable runtime:
 
 ```bash
 set -euo pipefail
@@ -159,7 +168,7 @@ echo "v0.1.20-stable" | sudo tee /etc/clawos/version >/dev/null
 cat /etc/clawos/version
 ```
 
-### 3) Run guided setup
+### 4) Run guided setup
 
 ```bash
 clawos setup
@@ -171,7 +180,7 @@ Expected completion line:
 SETUP_RESULT: PASS (mode=... port=... token=...)
 ```
 
-### 4) Verify service state
+### 5) Verify service state
 
 ```bash
 sudo systemctl is-active openclaw-gateway.service
