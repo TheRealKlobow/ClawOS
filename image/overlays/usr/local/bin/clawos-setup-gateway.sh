@@ -16,6 +16,14 @@ run_as_user() {
   sudo -u "$TARGET_USER" -H "$@"
 }
 
+run_as_user_bus() {
+  local uid runtime bus
+  uid="$(id -u "$TARGET_USER")"
+  runtime="/run/user/${uid}"
+  bus="unix:path=${runtime}/bus"
+  sudo -u "$TARGET_USER" -H env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="$bus" "$@"
+}
+
 ensure_user_service_path() {
   local path_line="Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   if [[ -f "$USER_SERVICE_FILE" ]] && ! grep -q '^Environment=PATH=' "$USER_SERVICE_FILE"; then
@@ -143,17 +151,26 @@ run_as_user openclaw config set gateway.controlUi.allowedOrigins "$ORIGINS_JSON"
 systemctl stop openclaw-gateway.service >/dev/null 2>&1 || true
 systemctl disable openclaw-gateway.service >/dev/null 2>&1 || true
 
-# Ensure user service mode is installed and started automatically.
+# Prefer user service mode, but fall back to system service if user bus is unavailable.
 loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
+loginctl start-user "$TARGET_USER" >/dev/null 2>&1 || true
 run_as_user openclaw gateway stop >/dev/null 2>&1 || true
 run_as_user openclaw gateway install >/dev/null 2>&1 || true
 ensure_user_service_path
-run_as_user systemctl --user daemon-reload >/dev/null 2>&1 || true
-run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
-run_as_user openclaw gateway start >/dev/null 2>&1 || true
+
+SERVICE_MODE="user"
+if run_as_user_bus systemctl --user daemon-reload >/dev/null 2>&1; then
+  run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
+  run_as_user_bus openclaw gateway start >/dev/null 2>&1 || true
+else
+  SERVICE_MODE="system"
+  systemctl daemon-reload
+  systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
+  systemctl restart openclaw-gateway.service
+fi
 
 READY=0
-for _ in $(seq 1 15); do
+for _ in $(seq 1 20); do
   STATUS_OUT="$(run_as_user openclaw gateway status 2>&1 || true)"
   if echo "$STATUS_OUT" | grep -Eiq "RPC probe:\s*(ok|healthy|pass)|Runtime:\s*running"; then
     READY=1
@@ -171,6 +188,7 @@ echo "- UI: http://${PRIMARY_IP:-127.0.0.1}:${PORT}/"
 echo "- WS: ws://${PRIMARY_IP:-127.0.0.1}:${PORT}"
 echo "- Token: ${TOKEN}"
 echo "- Allowed origins: ${ALLOWED_ORIGINS_STATUS}"
+echo "- Service mode: ${SERVICE_MODE}"
 echo "- Synced CLI config: ${USER_CFG_FILE}"
 echo "- Repo: https://github.com/TheRealKlobow/ClawOS"
 echo "- Site: http://clawos.klbgroups.com (coming soon)"

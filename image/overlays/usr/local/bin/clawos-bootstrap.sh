@@ -15,11 +15,11 @@ if ! grep -qE '^127\.0\.1\.1\s+klb-clawos(\s|$)' /etc/hosts 2>/dev/null; then
   sed -i '/^127\.0\.1\.1\s/d' /etc/hosts 2>/dev/null || true
   echo '127.0.1.1 klb-clawos' >>/etc/hosts || true
 fi
-echo "v0.1.20-beta3" >/etc/clawos/version
+echo "v0.1.20-beta4" >/etc/clawos/version
 
 cat >/etc/issue <<'EOF'
 ClawOS • Made by KLB Groups
-Version: v0.1.20-beta3
+Version: v0.1.20-beta4
 Repo: https://github.com/TheRealKlobow/ClawOS
 Site: http://clawos.klbgroups.com (coming soon)
 EOF
@@ -33,6 +33,14 @@ USER_SERVICE_FILE="$TARGET_HOME/.config/systemd/user/openclaw-gateway.service"
 
 run_as_user() {
   sudo -u "$TARGET_USER" -H "$@"
+}
+
+run_as_user_bus() {
+  local uid runtime bus
+  uid="$(id -u "$TARGET_USER")"
+  runtime="/run/user/${uid}"
+  bus="unix:path=${runtime}/bus"
+  sudo -u "$TARGET_USER" -H env XDG_RUNTIME_DIR="$runtime" DBUS_SESSION_BUS_ADDRESS="$bus" "$@"
 }
 
 ensure_user_service_path() {
@@ -191,11 +199,19 @@ systemctl disable --now openclaw-gateway.service >/dev/null 2>&1 || true
 
 if [[ -n "$TARGET_UID" ]]; then
   loginctl enable-linger "$TARGET_USER" >/dev/null 2>&1 || true
+  loginctl start-user "$TARGET_USER" >/dev/null 2>&1 || true
   run_as_user openclaw gateway install >/dev/null 2>&1 || true
   ensure_user_service_path
-  run_as_user systemctl --user daemon-reload >/dev/null 2>&1 || true
-  run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
-  run_as_user openclaw gateway start >/dev/null 2>&1 || true
+
+  SERVICE_MODE="user"
+  if run_as_user_bus systemctl --user daemon-reload >/dev/null 2>&1; then
+    run_as_user openclaw doctor --repair --non-interactive >/dev/null 2>&1 || true
+    run_as_user_bus openclaw gateway start >/dev/null 2>&1 || true
+  else
+    SERVICE_MODE="system"
+    systemctl enable openclaw-gateway.service >/dev/null 2>&1 || true
+    systemctl restart openclaw-gateway.service
+  fi
 
   READY=0
   for _ in $(seq 1 20); do
@@ -207,9 +223,10 @@ if [[ -n "$TARGET_UID" ]]; then
     sleep 1
   done
   if [[ "$READY" -ne 1 ]]; then
-    echo "[ERROR] bootstrap gateway health check failed"
+    echo "[ERROR] bootstrap gateway health check failed (mode=$SERVICE_MODE)"
     run_as_user openclaw gateway status || true
-    run_as_user journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+    run_as_user_bus journalctl --user -u openclaw-gateway.service -n 120 --no-pager || true
+    journalctl -u openclaw-gateway.service -n 120 --no-pager || true
   fi
 fi
 
